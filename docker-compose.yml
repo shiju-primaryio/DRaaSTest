@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  syncd:
+    build: ./src/syncd
+    ports:
+      - "8080:8080"
+  nginx:
+    image: nginx:1.23
