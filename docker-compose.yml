@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  syncd:
+    build: ./src/syncd
+    restart: on-failure
+    depends_on:
+      - nginx
+    deploy:
+      mode: replicated
+      replicas: 2
+  nginx:
+    build: ./src/nginx
+    restart: unless-stopped
+    ports:
+        - 8080:8080
