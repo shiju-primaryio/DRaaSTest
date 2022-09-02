@@ -1,8 +1,12 @@
-module primaryio.com/draas/syncd
+module github.com/CacheboxInc/DRaaS/src/syncd
 
 go 1.18
 
-require github.com/gin-gonic/gin v1.8.1
+require (
+	github.com/gin-gonic/gin v1.8.1
+	github.com/joho/godotenv v1.4.0
+	github.com/vmware/govmomi v0.29.0
+)
 
 require (
 	github.com/gin-contrib/sse v0.1.0 // indirect
