@@ -61,13 +61,25 @@ func main() {
 func FullDiskSyncHandler(ctx *gin.Context) {
 	var vmInfo FullDiskSyncHandlerRequest
 	ctx.BindJSON(&vmInfo)
-	fmt.Println("VM Name: ", vmInfo.Name)
-	vm.PrintVmInfo(vmInfo.Name)
+	fmt.Println("VM UUID: ", vmInfo.VmInstanceUuid)
+	client, err := vm.GetVCenterClient(ctx)
+	if err != nil {
+		fmt.Printf("Unable to obtain API client to VCenter.")
+		ctx.JSON(http.StatusInternalServerError, FullDiskSyncHandlerResponse{Message: "Fail"})
+		return
+	}
+	vm, err := vm.FindVmByInstanceUuid(client, vmInfo.VmInstanceUuid)
+	if err != nil {
+		fmt.Printf("No VM found: %v\n", err)
+		ctx.JSON(http.StatusNotFound, FullDiskSyncHandlerResponse{Message: "Fail"})
+		return
+	}
+	fmt.Println("VM name", vm.Summary.Config.Name)
 	ctx.JSON(http.StatusOK, FullDiskSyncHandlerResponse{Message: "Success"})
 }
 
 type FullDiskSyncHandlerRequest struct {
-	Name string `json:"name" binding:"required"`
+	VmInstanceUuid string `json:"vmInstanceUuid" binding:"required"`
 }
 
 type FullDiskSyncHandlerResponse struct {

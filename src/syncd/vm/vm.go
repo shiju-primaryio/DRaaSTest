@@ -36,10 +36,36 @@ func PrintVmInfo(vmName string) {
 		return
 	}
 	for _, vm := range vms {
-		fmt.Println(vm.Summary.Config.Name, vm.Summary.Config.GuestFullName)
+		fmt.Println(vm.Summary.Config.Name, vm.Summary.Config.GuestFullName, vm.Summary.Config.InstanceUuid)
 	}
 }
 
+func FindVmByInstanceUuid(vCenterClient *vim25.Client, instanceUuid string) (*mo.VirtualMachine, error) {
+	manager := view.NewManager(vCenterClient)
+	ctx := context.Background()
+	view, err := manager.CreateContainerView(ctx, vCenterClient.ServiceContent.RootFolder, []string{"VirtualMachine"}, true)
+	if err != nil {
+		return nil, err
+	}
+	defer view.Destroy(ctx)
+
+	var vms []mo.VirtualMachine
+	fmt.Println("Retrieve list of VMs")
+	err = view.Retrieve(ctx, []string{"VirtualMachine"}, []string{"summary"}, &vms)
+	if err != nil {
+		return nil, err
+	}
+	for _, vm := range vms {
+		fmt.Println(vm.Summary.Config.Name, vm.Summary.Config.GuestFullName, vm.Summary.Config.InstanceUuid)
+		if vm.Summary.Config.InstanceUuid == instanceUuid {
+			fmt.Println("Found")
+			return &vm, nil
+		}
+	}
+	return nil, nil
+}
+
+// Obtain a client to call vCenter APIs
 func GetVCenterClient(ctx context.Context) (*vim25.Client, error) {
 	vCenterUrl := os.Getenv("VCENTER_URL")
 	// TODO sanitize
