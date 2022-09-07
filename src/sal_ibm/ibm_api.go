@@ -7,6 +7,8 @@ import "C"
 import (
 	"fmt"
         "os"
+        "bytes"
+        "io/ioutil"
         "github.com/IBM/ibm-cos-sdk-go/aws/credentials/ibmiam"
 	"github.com/IBM/ibm-cos-sdk-go/aws"
 	"github.com/IBM/ibm-cos-sdk-go/aws/session"
@@ -15,10 +17,7 @@ import (
 //	"strings"
 //	"github.com/IBM/ibm-cos-sdk-go/service/s3/s3manager"
 //       "log"
-//        "io/ioutil"
 //        "io"
-//        "bytes"
-
 )
 
 var region = "us-south"
@@ -115,9 +114,8 @@ func exitErrorf(msg string, args ...interface{}) {
   os.Exit(1)
 }
 
-/*
 // Write the object into the bucket (synchronous) . If object already exists, it is overwritten, otherwise it will be newly created 
-func writeSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string,data string) {
+func writeSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string,data string) string {
     key := s3_object_name
     content := bytes.NewReader([]byte(data))
 
@@ -136,16 +134,18 @@ func writeSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string,
                 // Print the error, cast err to awserr.Error to get the Code and
                 // Message from an error.
                 fmt.Println(err.Error())
+                return err.Error()
         } else {
                 fmt.Println(result)
-                return
-                //return true
+		returnString := fmt.Sprintf("Object %s is written sucessfully..\n", key)
+		return returnString
         }
     }
+    return "Unable to write Object into Obj Store"
 }
 
 // Read the Object from the bucket (synchronous)
-func readSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string) {
+func readSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string) string {
     key := s3_object_name
 
     // users will need to create bucket, key (flat string name)
@@ -163,24 +163,16 @@ func readSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string) 
                 // Print the error, cast err to awserr.Error to get the Code and
                 // Message from an error.
                 fmt.Println(err.Error())
+                return err.Error()
         } else {
-    		fmt.Println(result)
-		f, _ := os.Create(key)
-		defer f.Close()
-		io.Copy(f, result.Body)
-
-		fmt.Println("Downloaded", f.Name())
-
-    		body, _ := ioutil.ReadAll(result.Body)
-		s := string(body[:])
-		fmt.Println("Downloaded: ",s)
-
-                return 
+		data, _ := ioutil.ReadAll(result.Body)
+		fmt.Println(string(data))
+		return string(data)
         }
     }
+    return "Unable to retieve Object from Obj Store"
 }
 
-*/
 
 func setupIBMCloud() {
 

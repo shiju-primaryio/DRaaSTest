@@ -7,7 +7,7 @@ import "C"
 import (
 	"fmt"
         "io/ioutil"
-        "io"
+//        "io"
         "bytes"
         "os"
         "github.com/IBM/ibm-cos-sdk-go/aws/credentials/ibmiam"
@@ -17,7 +17,7 @@ import (
 //	"github.com/IBM/ibm-cos-sdk-go/aws/awserr"
 //	"strings"
 //	"github.com/IBM/ibm-cos-sdk-go/service/s3/s3manager"
-//       "log"
+       //"log"
 )
 
 // Constants for IBM COS values
@@ -154,16 +154,16 @@ func readSyncObjectMyBucket(svc *s3.S3, bucketName string, s3_object_name string
                 // Message from an error.
                 fmt.Println(err.Error())
         } else {
+		/* *** writing to file
     		fmt.Println(result)
 		f, _ := os.Create(key)
 		defer f.Close()
 		io.Copy(f, result.Body)
-
 		fmt.Println("Downloaded", f.Name())
+		*** */
 
-    		body, _ := ioutil.ReadAll(result.Body)
-		s := string(body[:])
-		fmt.Println("Downloaded: ",s)
+		data, _ := ioutil.ReadAll(result.Body)
+		fmt.Println(string(data))
 
                 return 
         }
@@ -184,7 +184,7 @@ func main() {
   svc:= s3.New(sess, conf)
 
   listMyBuckets(svc)
-  createMyBucket(svc, "rahulk31-test31", "us-south")
+//  createMyBucket(svc, "rahulk31-test31", "us-south")
 //  writeSyncObjectMyBucket(svc, "rahulk3-test3", "test_data","RK bcbcewcbwobcewocHello World!")
   readSyncObjectMyBucket(svc, "rahulk3-test3", "test_data")
   //data := readSyncObjectMyBucket(svc, "rahulk3-test3", "test_data")

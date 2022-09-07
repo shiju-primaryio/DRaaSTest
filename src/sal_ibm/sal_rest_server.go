@@ -96,7 +96,7 @@ func deleteVMBucket(c *gin.Context) {
 
     // Call BindJSON to bind the received JSON to bucket
     if err := c.BindJSON(&newVMName); err != nil {
-        fmt.Printf("\nCreating a new bucket named '" + newVMName.Name + "'...\n\n")
+        fmt.Printf("\nDeleting a new bucket named '" + newVMName.Name + "'...\n\n")
         return
     }
  
@@ -106,6 +106,45 @@ func deleteVMBucket(c *gin.Context) {
     jsonWriteMessage(c,retString)
     //c.IndentedJSON(http.StatusCreated, newVMName.Name)
 
+}
+
+var getObjName struct {
+	BucketName string `json:"bucketname"`
+	ObjKey string `json:"objkey"`
+}
+
+//Get VAIO Obj
+func getVaioObj(c *gin.Context) {
+
+    // Call BindJSON to bind the received JSON to getNewObjName structure
+    if err := c.BindJSON(&getObjName); err != nil {
+        fmt.Printf("\nCreating a new bucket named '" + newVMName.Name + "'...\n\n")
+        return
+    }
+
+    fmt.Printf("\nGetting the object from bucket " + getObjName.BucketName +" with key "+ getObjName.ObjKey + "...\n\n")
+    retString := readSyncObjectBucket(svc, getObjName.BucketName, getObjName.ObjKey)
+
+    jsonWriteMessage(c,retString)
+}
+
+var addNewObjName struct {
+	BucketName string `json:"bucketname"`
+	ObjKey string `json:"objkey"`
+	Data string `json:"data"`
+}
+
+//Add VAIO Obj
+func addVaioObj(c *gin.Context) {
+    // Call BindJSON to bind the received JSON to addNewObjName structure
+    if err := c.BindJSON(&addNewObjName); err != nil {
+        fmt.Printf("\nCreating a new bucket named '" + newVMName.Name + "'...\n\n")
+        return
+    }
+
+    retString := writeSyncObjectBucket(svc, addNewObjName.BucketName, addNewObjName.ObjKey, addNewObjName.Data)
+
+    jsonWriteMessage(c,retString)
 }
 
 // Create Log file and start logging 
@@ -159,13 +198,12 @@ func main() {
      }))
 
 
-    // GET POST Requests
+    // GET & POST Requests
     rest_server.GET("/listProtectedVms", listProtectedVms) // List buckets
     rest_server.POST("/createVMBucket", createVMBucket)    // Create VM Bucket
     rest_server.POST("/deleteVMBucket", deleteVMBucket)    // Delete VM Bucket
-    //rest_server.GET("/getVMObj/:id", getAlbumByID)
-    //rest_server.GET("/getVaioObj/:id", getAlbumByID)
-    //rest_server.POST("/addVaioObj", postAlbums)
+    rest_server.GET("/getVaioObj", getVaioObj)      	   // Retrieve Object
+    rest_server.POST("/addVaioObj", addVaioObj)            // Add VAIO Object
 
     // Start the server 
     rest_server.Run("localhost:8080")
