@@ -21,9 +21,9 @@ func listProtectedVms(c *gin.Context) {
   result := listBuckets()
 
   if result == nil {
-    c.IndentedJSON(http.StatusOK, "Error: Unable to list protected Vms...")
+    fmt.Printf("\n Error: Listing of buckets failed...\n\n")
+    c.IndentedJSON(http.StatusInternalServerError, "Error: Unable to list protected Vms...")
     return
-    //exitErrorf("Unable to list buckets, %v", err)
   }
 
   w := c.Writer
@@ -75,28 +75,27 @@ var newVMName struct {
 
 // createVMBucket adds an bucket from JSON received in the request body.
 func createVMBucket(c *gin.Context) {
-    //var bucketName string
 
     // Call BindJSON to bind the received JSON to bucket
     if err := c.BindJSON(&newVMName); err != nil {
-        fmt.Printf("\n Error: Creating a new bucket named '" + newVMName.Name + "' failed...\n\n")
+	fmt.Printf("\n Error: Creating a new bucket failed...\n\n")
+	c.IndentedJSON(http.StatusInternalServerError, "Error: Unable to create bucket...")
         return
     }
  
     retString  := createBucket(newVMName.Name)
 
     jsonWriteMessage(c,retString)
-    //c.IndentedJSON(http.StatusCreated, newVMName.Name)
 
 }
 
 // deleteVMBucket deletes the bucket from JSON received in the request body.
 func deleteVMBucket(c *gin.Context) {
-    //var bucketName string
 
     // Call BindJSON to bind the received JSON to bucket
     if err := c.BindJSON(&newVMName); err != nil {
-        fmt.Printf("\nDeleting a new bucket named '" + newVMName.Name + "'...\n\n")
+        fmt.Printf("\n Error: Deleting the bucket failed...\n\n")
+	c.IndentedJSON(http.StatusInternalServerError, "Error: Unable to delete the bucket...")
         return
     }
  
@@ -116,14 +115,17 @@ var getObjName struct {
 //Get VAIO Obj
 func getVaioObj(c *gin.Context) {
 
+    var retString string
+
     // Call BindJSON to bind the received JSON to getNewObjName structure
     if err := c.BindJSON(&getObjName); err != nil {
-        fmt.Printf("\nCreating a new bucket named '" + newVMName.Name + "'...\n\n")
+        retString = "\nError: Getting the object from bucket failed...\n\n"
+	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
     }
 
     fmt.Printf("\nGetting the object from bucket " + getObjName.BucketName +" with key "+ getObjName.ObjKey + "...\n\n")
-    retString := readSyncObjectBucket(svc, getObjName.BucketName, getObjName.ObjKey)
+    retString = readSyncObjectBucket(svc, getObjName.BucketName, getObjName.ObjKey)
 
     jsonWriteMessage(c,retString)
 }
@@ -136,13 +138,17 @@ var addNewObjName struct {
 
 //Add VAIO Obj
 func addVaioObj(c *gin.Context) {
+
+    var retString string
+
     // Call BindJSON to bind the received JSON to addNewObjName structure
     if err := c.BindJSON(&addNewObjName); err != nil {
-        fmt.Printf("\nCreating a new bucket named '" + newVMName.Name + "'...\n\n")
+        retString = "\nError: Adding the object into the bucket failed...\n\n"
+	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
     }
 
-    retString := writeSyncObjectBucket(svc, addNewObjName.BucketName, addNewObjName.ObjKey, addNewObjName.Data)
+    retString = writeSyncObjectBucket(svc, addNewObjName.BucketName, addNewObjName.ObjKey, addNewObjName.Data)
 
     jsonWriteMessage(c,retString)
 }
