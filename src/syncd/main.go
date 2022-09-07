@@ -68,13 +68,13 @@ func FullDiskSyncHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, FullDiskSyncHandlerResponse{Message: "Fail"})
 		return
 	}
-	vm, err := vm.FindVmByInstanceUuid(client, vmInfo.VmInstanceUuid)
+	vmObj, err := vm.FindVmByInstanceUuid(client, vmInfo.VmInstanceUuid)
 	if err != nil {
 		fmt.Printf("No VM found: %v\n", err)
 		ctx.JSON(http.StatusNotFound, FullDiskSyncHandlerResponse{Message: "Fail"})
 		return
 	}
-	fmt.Println("VM name", vm.Summary.Config.Name)
+	vm.CloneVm(client, vmObj)
 	ctx.JSON(http.StatusOK, FullDiskSyncHandlerResponse{Message: "Success"})
 }
 

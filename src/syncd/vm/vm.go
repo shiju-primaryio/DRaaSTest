@@ -8,11 +8,14 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/vmware/govmomi/find"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/session/cache"
 	"github.com/vmware/govmomi/view"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 )
 
 func PrintVmInfo(vmName string) {
@@ -91,4 +94,60 @@ func GetVCenterClient(ctx context.Context) (*vim25.Client, error) {
 	}
 	fmt.Println("Logged in")
 	return client, nil
+}
+
+func CloneVm(vCenterClient *vim25.Client, vm *mo.VirtualMachine) error {
+	v := object.NewVirtualMachine(vCenterClient, vm.Reference())
+	ctx := context.Background()
+
+	finder := find.NewFinder(vCenterClient)
+	dataCenter, err := finder.DefaultDatacenter(ctx)
+	if err != nil {
+		fmt.Println("Unable to find Default Datacenter.")
+		return err
+	}
+	fmt.Printf("dataCenter: %v\n", dataCenter)
+	folders, err := dataCenter.Folders(ctx)
+	if err != nil {
+		fmt.Println("Unable to find folders in Datacenter.")
+		return err
+	}
+	fmt.Printf("folders.VmFolder: %v\n", folders.VmFolder)
+
+	dataStore, err := finder.DefaultDatastore(ctx)
+	if err != nil {
+		fmt.Println("Unable to find default DataStore.")
+		return err
+	}
+	dataStoreMO := dataStore.Reference()
+
+	resourcePool, err := finder.DefaultResourcePool(ctx)
+	if err != nil {
+		fmt.Println("Unable to find Default ResourcePool.")
+		return err
+	}
+
+	resourcePoolMO := resourcePool.Reference()
+
+	relocateSpec := types.VirtualMachineRelocateSpec{
+		Datastore: &dataStoreMO,
+		Pool:      &resourcePoolMO,
+	}
+	cloneSpec := &types.VirtualMachineCloneSpec{
+		PowerOn:  false,
+		Template: false,
+	}
+	cloneSpec.Location = relocateSpec
+	// cloneSpec.Location.Datastore = &datastoreref
+	new_vm_name := "clone-" + vm.Summary.Config.Name // TODO auto generate
+	fmt.Println("Starting to clone VM")
+	task, err := v.Clone(ctx, folders.VmFolder, new_vm_name, *cloneSpec)
+	if err != nil {
+		fmt.Printf("Unable to clone VM.")
+		return err
+	}
+	task.Wait(ctx)
+	fmt.Println("Clone task completed")
+	// TODO error check
+	return nil
 }
