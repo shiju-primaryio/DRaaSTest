@@ -96,8 +96,8 @@ func GetVCenterClient(ctx context.Context) (*vim25.Client, error) {
 	return client, nil
 }
 
-func CloneVm(vCenterClient *vim25.Client, vm *mo.VirtualMachine) error {
-	v := object.NewVirtualMachine(vCenterClient, vm.Reference())
+func CloneVm(vCenterClient *vim25.Client, vm_to_clone *mo.VirtualMachine, clone_vm_name string) error {
+	v := object.NewVirtualMachine(vCenterClient, vm_to_clone.Reference())
 	ctx := context.Background()
 
 	finder := find.NewFinder(vCenterClient)
@@ -126,7 +126,6 @@ func CloneVm(vCenterClient *vim25.Client, vm *mo.VirtualMachine) error {
 		fmt.Println("Unable to find Default ResourcePool.")
 		return err
 	}
-
 	resourcePoolMO := resourcePool.Reference()
 
 	relocateSpec := types.VirtualMachineRelocateSpec{
@@ -138,16 +137,17 @@ func CloneVm(vCenterClient *vim25.Client, vm *mo.VirtualMachine) error {
 		Template: false,
 	}
 	cloneSpec.Location = relocateSpec
-	// cloneSpec.Location.Datastore = &datastoreref
-	new_vm_name := "clone-" + vm.Summary.Config.Name // TODO auto generate
 	fmt.Println("Starting to clone VM")
-	task, err := v.Clone(ctx, folders.VmFolder, new_vm_name, *cloneSpec)
+	task, err := v.Clone(ctx, folders.VmFolder, clone_vm_name, *cloneSpec)
 	if err != nil {
-		fmt.Printf("Unable to clone VM.")
+		fmt.Printf("Failed to start VM cloning.")
 		return err
 	}
-	task.Wait(ctx)
-	fmt.Println("Clone task completed")
-	// TODO error check
+	info, err := task.WaitForResult(ctx, nil)
+	if err != nil {
+		fmt.Printf("VM clone process failed: %v", err)
+		return err
+	}
+	fmt.Println("Clone task: ", info.State)
 	return nil
 }

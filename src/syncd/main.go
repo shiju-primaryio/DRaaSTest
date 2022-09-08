@@ -10,6 +10,7 @@ import (
 
 	"github.com/CacheboxInc/DRaaS/src/syncd/vm"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
@@ -64,17 +65,25 @@ func FullDiskSyncHandler(ctx *gin.Context) {
 	fmt.Println("VM UUID: ", vmInfo.VmInstanceUuid)
 	client, err := vm.GetVCenterClient(ctx)
 	if err != nil {
-		fmt.Printf("Unable to obtain API client to VCenter.")
-		ctx.JSON(http.StatusInternalServerError, FullDiskSyncHandlerResponse{Message: "Fail"})
+		fmt.Printf("Unable to obtain API client to vCenter.")
+		ctx.JSON(http.StatusInternalServerError, FullDiskSyncHandlerResponse{Message: "Failed to connect to vCenter"})
 		return
 	}
 	vmObj, err := vm.FindVmByInstanceUuid(client, vmInfo.VmInstanceUuid)
 	if err != nil {
 		fmt.Printf("No VM found: %v\n", err)
-		ctx.JSON(http.StatusNotFound, FullDiskSyncHandlerResponse{Message: "Fail"})
+		ctx.JSON(http.StatusNotFound, FullDiskSyncHandlerResponse{Message: "VM not found"})
 		return
 	}
-	vm.CloneVm(client, vmObj)
+
+	temp_uuid := uuid.New()
+	clone_vm_name := "clone-" + vmObj.Summary.Config.Name + "-" + temp_uuid.String()
+	err = vm.CloneVm(client, vmObj, clone_vm_name)
+	if err != nil {
+		fmt.Printf("VM Clone failed: %v\n", err)
+		ctx.JSON(http.StatusInternalServerError, FullDiskSyncHandlerResponse{Message: "VM clone failed"})
+		return
+	}
 	ctx.JSON(http.StatusOK, FullDiskSyncHandlerResponse{Message: "Success"})
 }
 
