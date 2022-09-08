@@ -1,8 +1,6 @@
-package vm
+package vmOps
 
 import (
-	// "github.com/vmware/govmomi/examples"
-	// "github.com/vmware/govmomi/view"
 	"context"
 	"fmt"
 	"net/url"
