@@ -1,0 +1,39 @@
+Steps to build rest client in GO to upload file:
+ 	#make
+        # Start REST Server ./sal_ibm from another terminal 
+ 	#./sal_client_uploadfile [Start REST Client to upload file]
+
+Note:
+    1. Please note that client assumes default and minimum part upload size is 5MB. One can specify uploadPartSize in command line parameter 
+    2. Filename can be specified as a command line parameter
+    3. Bucketname can be specified as a command line parameter
+
+root@startuppartner:~/DRaaS/src/sal_ibm/client# ./sal_client_uploadfile -UploadPartSize 4
+
+===============================================================================================================
+Error: UploadPartSize should be more than 5MB.
+
+Usage of ./sal_client_uploadfile:
+  -Bucketname string
+    	Bucketname to be used for file upload. Please note that bucketname should exist. (default "rahulk341-test31")
+  -Filename string
+    	Filename to be uploaded. Path could be relative or absolute path.  (default "test_media_VAIO7.mp4")
+  -UploadPartSize int
+    	Upload part size in MB to be uploaded. UploadPartSize >=5  (default 5)
+root@startuppartner:~/DRaaS/src/sal_ibm/client# 
+===============================================================================================================
+
+
+
+#~/DRaaS/src/sal_ibm/client# ./sal_client_uploadfile 
+===============================================================================================================
+FileName to be uploaded is test_media_VAIO7.mp4 
+File size in MB is 9.256519 
+2022/09/15 00:36:19 Starting upload of file test_media_VAIO7.mp4 into bucket rahulk341-test31 
+2022/09/15 00:36:22 Started upload of file test_media_VAIO7.mp4 . UploadId is 01000183-3d65-248e-6c2a-675a4bcb562f
+2022/09/15 00:36:26 Uploaded part 1 of file test_media_VAIO7.mp4
+2022/09/15 00:36:29 Uploaded part 2 of file test_media_VAIO7.mp4
+2022/09/15 00:36:30 -------- The File upload of file test_media_VAIO7.mp4 took 10.298758201s -------- 
+===============================================================================================================
+
+

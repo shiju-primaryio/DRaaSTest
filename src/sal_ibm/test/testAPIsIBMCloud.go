@@ -7,6 +7,7 @@ import "C"
 import (
 	"fmt"
         "io/ioutil"
+	"net/http"
 //        "io"
         "bytes"
         "os"
@@ -17,7 +18,7 @@ import (
 //	"github.com/IBM/ibm-cos-sdk-go/aws/awserr"
 //	"strings"
 //	"github.com/IBM/ibm-cos-sdk-go/service/s3/s3manager"
-       //"log"
+//       "log"
 )
 
 // Constants for IBM COS values
@@ -133,6 +134,35 @@ func writeSyncObjectMyBucket(svc *s3.S3, bucketName string, s3_object_name strin
     }
 }
 
+//upload a file
+func uploadFile(svc *s3.S3, uploadFileDir string) error {
+
+    upFile, err := os.Open(uploadFileDir)
+    if err != nil {
+        fmt.Println("unable to open the file")
+        return err
+    }
+    defer upFile.Close()
+
+    upFileInfo, _ := upFile.Stat()
+    var fileSize int64 = upFileInfo.Size()
+    fileBuffer := make([]byte, fileSize)
+    upFile.Read(fileBuffer)
+    result1, err1 := svc.PutObject(&s3.PutObjectInput{
+        Bucket:               aws.String("rahulk3-test3"),
+        Key:                  aws.String(uploadFileDir),
+        ACL:                  aws.String("private"),
+        Body:                 bytes.NewReader(fileBuffer),
+        ContentLength:        aws.Int64(fileSize),
+        ContentType:          aws.String(http.DetectContentType(fileBuffer)),
+        ContentDisposition:   aws.String("attachment"),
+        ServerSideEncryption: aws.String("AES256"),
+    })
+    fmt.Println(err1.Error())
+    fmt.Println(result1)
+    return err1
+}
+
 // Read the Object from the bucket
 //func readSyncObjectMyBucket(svc *s3.S3, bucketName string, s3_object_name string) string {
 func readSyncObjectMyBucket(svc *s3.S3, bucketName string, s3_object_name string) {
@@ -183,6 +213,7 @@ func main() {
   }
   svc:= s3.New(sess, conf)
 
+  uploadFile(svc,"test_data123")
   listMyBuckets(svc)
 //  createMyBucket(svc, "rahulk31-test31", "us-south")
 //  writeSyncObjectMyBucket(svc, "rahulk3-test3", "test_data","RK bcbcewcbwobcewocHello World!")

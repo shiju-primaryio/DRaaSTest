@@ -11,4 +11,7 @@ deps:
 build: 
 	go build -o sal_ibm sal_rest_server.go ibm_api.go
 clean:
-	rm -rf sal_ibm  sal_logs
+	rm -rf sal_ibm
+
+cleanlogs:
+	rm -rf sal_logs
