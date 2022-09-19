@@ -15,6 +15,7 @@ import (
 	"github.com/IBM/ibm-cos-sdk-go/aws/session"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
 	"github.com/IBM/ibm-cos-sdk-go/aws/awserr"
+	"strconv"
 //	"strings"
 //	"github.com/IBM/ibm-cos-sdk-go/service/s3/s3manager"
 //       "log"
@@ -53,6 +54,37 @@ func listBuckets() []string  {
   return buckets
 }
 
+// Set versioning configuration on a bucket
+func enableBucketVersioning(bucketName string) {
+	//svc := s3.New(session.New())
+	input := &s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucketName),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			MFADelete: aws.String("Disabled"),
+			Status:    aws.String("Enabled"),
+		},
+	}
+
+	result, err := svc.PutBucketVersioning(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+		return
+	}
+
+	fmt.Println(result)
+}
+
+
+
 // Create a bucket (VM)
 func createBucket(bucketName string) string {
   var returnString string
@@ -78,6 +110,10 @@ func createBucket(bucketName string) string {
   err = svc.WaitUntilBucketExists(&s3.HeadBucketInput{
     Bucket: aws.String(bucketName),
   })
+
+  //Enable Versioning for bucket
+  enableBucketVersioning(bucketName)
+
   returnString = fmt.Sprintf("Bucket %s is created sucessfully..\n", bucketName)
   fmt.Printf(returnString+"\n")
   return(returnString)
@@ -118,9 +154,10 @@ func exitErrorf(msg string, args ...interface{}) {
 }
 
 // Write the object into the bucket (synchronous) . If object already exists, it is overwritten, otherwise it will be newly created 
-func writeSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string,data string) string {
-    key := s3_object_name
-    content := bytes.NewReader([]byte(data))
+func writeSyncObjectBucket(svc *s3.S3, bucketName string, vmdk_name string,blockNumber int, blockData []byte) (string,error) {
+    //Object name is FileName_BlockNumber
+    key := vmdk_name+"_"+strconv.Itoa(blockNumber)
+    content := bytes.NewReader(blockData)
 
     input := s3.PutObjectInput{
         Bucket:        aws.String(bucketName),
@@ -131,25 +168,27 @@ func writeSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string,
     retry_iter := 1
     for retry_iter <= 5 {
     	// Call Function to upload (Put) an object 
+        //fmt.Println("writing object .. ")
     	result, err := svc.PutObject(&input)
 
         if err != nil {
                 // Print the error, cast err to awserr.Error to get the Code and
                 // Message from an error.
                 fmt.Println(err.Error())
-                return err.Error()
+                return err.Error(),err
         } else {
                 fmt.Println(result)
 		returnString := fmt.Sprintf("Object %s is written sucessfully..\n", key)
-		return returnString
+		return returnString,nil
         }
     }
-    return "Unable to write Object into Obj Store"
+    return "Unable to write Object into Obj Store",nil
 }
 
 // Read the Object from the bucket (synchronous)
-func readSyncObjectBucket(svc *s3.S3, bucketName string, s3_object_name string) string {
-    key := s3_object_name
+func readSyncObjectBucket(svc *s3.S3, bucketName string, vmdk_name string,blockNumber int) string {
+    //Object name is FileName_BlockNumber
+    key := vmdk_name+"_"+strconv.Itoa(blockNumber)
 
     // users will need to create bucket, key (flat string name)
     input := s3.GetObjectInput{

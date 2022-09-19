@@ -56,7 +56,7 @@ func listbuckets_simple() {
 }
 
 func createbuckets() {
-	 jsonData := map[string]string {"name": "rahulk341-test31"} 
+	 jsonData := map[string]string {"vmbucketname": "rahulk341-test31"}
 	 jsonValue, _ := json.Marshal(jsonData)
 	 resp, err := http.Post("http://localhost:8080/createVMBucket","application/json",bytes.NewBuffer(jsonValue))
 	 if err != nil {
@@ -77,7 +77,7 @@ type StartUploadResponse struct {
 
 func StartUpload(bucketname string, objkey string) string {
 
-	 jsonData := map[string]string {"bucketname": bucketname,"objkey": objkey } 
+	 jsonData := map[string]string {"vmbucketname": bucketname,"vmdkname": objkey }
 	 jsonValue, _ := json.Marshal(jsonData)
 	 resp, err := http.Post("http://localhost:8080/startUploadFileObj","application/json",bytes.NewBuffer(jsonValue))
 	 if err != nil {
@@ -100,11 +100,20 @@ func StartUpload(bucketname string, objkey string) string {
 }
 
 type UploadRequest struct {
-        BucketName string `json:"bucketname"`
-        ObjKey string `json:"objkey"`
+        VmBucketName string `json:"vmbucketname"`
+	VmdkName string `json:"vmdkname"`
+        //ObjKey string `json:"objkey"`
         UploadId string `json:"uploadId"`
         FileBytes []byte `json:"fileBytes"`
         PartNumber int `json:"partNumber"`
+}
+
+type RequestComplete struct {
+        VmBucketName string `json:"vmbucketname"`
+	VmdkName string `json:"vmdkname"`
+        //ObjKey string `json:"objkey"`
+        UploadId string `json:"uploadId"`
+	CompletedUploadParts []*s3.CompletedPart `json:"completedUploadParts"`
 }
 
 type UploadPartResponse struct {
@@ -112,13 +121,13 @@ type UploadPartResponse struct {
 	 PartNumber int `json:"PartNumber"`
 	//ETag":"\"37b15ab4d3226d1f2325f03ea526e375\"","PartNumber
 }
-func UploadPartData(bucketname string, objkey string,uploadId string, partId int, fileBytes []byte ) (*s3.CompletedPart, error) {
+func UploadPartData(vmbucketname string, objkey string,uploadId string, partId int, fileBytes []byte ) (*s3.CompletedPart, error) {
 	
          var responseObject s3.CompletedPart
 
 	 RequestObj := UploadRequest{
-        	BucketName: bucketname,
-        	ObjKey: objkey,
+		VmBucketName: vmbucketname,
+		VmdkName: objkey,
         	UploadId: uploadId,
         	FileBytes: fileBytes,
         	PartNumber: partId,
@@ -196,18 +205,11 @@ func UploadFilePartByPart(bucketname string, objkey string,uploadId string) ([]*
 }
 
 
-type RequestComplete struct {
-        BucketName string `json:"bucketname"`
-        ObjKey string `json:"objkey"`
-        UploadId string `json:"uploadId"`
-	CompletedUploadParts []*s3.CompletedPart `json:"completedUploadParts"`
-}
-
-func CompleteUpload(bucketname string, objkey string, uploadId string, completedUploadParts []*s3.CompletedPart) string {
+func CompleteUpload(vmbucketname string, objkey string, uploadId string, completedUploadParts []*s3.CompletedPart) string {
 
 	RequestObj := RequestComplete{
-        	BucketName: bucketname,
-        	ObjKey: objkey,
+		VmBucketName: vmbucketname,
+		VmdkName: objkey,
         	UploadId: uploadId,
 		CompletedUploadParts: completedUploadParts,
 	} 

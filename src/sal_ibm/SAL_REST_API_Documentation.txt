@@ -1,0 +1,84 @@
+					SAL REST API Overview
+
+The SAL (Storage Abstraction Layer) REST server provides interface for writing and retrieving VM datablocks to/from the cloud through REST APIs. Currently, it supports writing and retrieving data to/from only IBM cloud. Gin Web Framework is used internally to design & develope SAL REST APIs.
+
+SAL REST API:
+	- Is organized around REST.
+	- Accepts JSON-encoded request bodies.
+	- Returns JSON-encoded responses.
+	- Uses standard HTTP response codes. 
+
+SAL REST APIs lets you:
+	-list protected VMs
+	-store/retrieve VMDK file into the cloud
+        -store/retieve specific blocks of VM. It also supports versioning. 
+
+Authorization:
+       - TBD (*To be determined). Currently, there is no authorization required.
+
+Following REST API endpoints are exported by SAL server:
+    -listProtectedVms      : to list VM Buckets.
+    -createVMBucket        : to create VM Bucket with versioning enabled.
+    -deleteVMBucket        : to delete VM Bucket.
+    -getVaioObj            : to retrieve VAIO Object of specific block number of specific VMDK file. 
+    -addVaioObj            : to store VAIO Object of specific block number of specific VMDK file. 
+    -startUploadFileObj    : first step which needs to be executed to upload a file/VMDK of a VM
+    -uploadPartFileObj     : second step which needs to be executed to upload parts of file/VMDK.
+    -completeUploadFileObj : last step which needs to be executed to inform SERVER that all parts are uploaded.
+
+VAIO Communication:
+	For VAIO Communication, addVaioObj & getVaioObj endpoints are used to send and retrieve data to SAL.
+
+Upload VMDK file:
+	For uploading VMDK file or filesize >10MB, following 3 APIs will be used: 
+    		-startUploadFileObj
+    		-uploadPartFileObj
+    		-completeUploadFileObj
+
+1) addVaioObj: 
+	func addVaioObj(input *addVaioObjReqest) (*addVaioDataResponse, error)
+
+	This is a POST request that sends VAIO data object to SAL server. This request needs to be sent using JSON.
+	It assumes bucket is already created with bucketname.
+
+	Following is the Request structure for addVaioObj API:
+		var addVaioObjRequest struct {
+	        	VmBucketName string `json:"vmbucketname"`
+			VmdkName string `json:"vmdkname"`
+                	BlockNumber int `json:"blocknumber"`
+			BlockData []byte `json:"blockData"`
+		}
+
+		VmBucketName :  is the VMName in which blockdata containing object would be written
+		VmdkName: is the VMDKName of the VM 
+		BlockNumber: is the BlockNumber of VMDK which needs to be stored in SAL
+		BlockData: is the array of bytes which is actual block data which we want to store.
+
+	
+       Following is the reponse structure for addVaioObj API:
+       		var type addVaioDataResponse struct {
+	        	RetString string `json:"retstring"`
+		}
+
+		RetString : is the success message or error message. This can be modified later.
+
+       <VmdkName>_<BlockNumber> object is created inside bucket <VmBucketName> and Blockdata is written inside it.
+
+       e.g. If addVaioObj() is called with bucketName "VaioTestVM" with VMDKName "VaioTestVM.vmdk" with BlockNumber "1", 
+		then "VaioTestVM.vmdk_1" is created. Please note 1 is a blocknumber.
+
+	Sample code in go language:
+	=================================================
+          addVaioDataRequestObj := addVaioDataRequest{
+	         VmBucketName: vmbucketname,
+    		 VmdkName: vmdkname,
+   		 BlockNumber: blocknumber,
+	         BlockData: blockdata,
+		}
+
+	jsonValue, _ := json.Marshal(addVaioDataRequestObj)
+ 	resp, err := http.Post("http://localhost:8080/addVaioObj","application/json",bytes.NewBuffer(jsonValue))
+	=================================================
+
+
+

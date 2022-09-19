@@ -11,11 +11,53 @@ import (
         "io"
         "log"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
-
+        //"strconv"
         //REST Server Gin
         "net/http"
 	"github.com/gin-gonic/gin"
 )
+
+var addVaioObjRequest struct {
+        VmBucketName string `json:"vmbucketname"`
+        VmdkName string `json:"vmdkname"`
+        BlockNumber int `json:"blocknumber"`
+        BlockData []byte `json:"blockdata"`
+}
+
+var createVMBucketRequest struct {
+	VmBucketName string `json:"vmbucketname"`
+}
+
+var deleteVMBucketRequest struct {
+	VmBucketName string `json:"vmbucketname"`
+}
+
+var getVaioObjRequest struct {
+	VmBucketName string `json:"vmbucketname"`
+        VmdkName string `json:"vmdkname"`
+        BlockNumber int `json:"blocknumber"`
+}
+
+var startUploadVmdkFileRequest struct {
+	VmBucketName string `json:"vmbucketname"`
+        VmdkName string `json:"vmdkname"`
+}
+
+var uploadPartFileRequest struct {
+	VmBucketName string `json:"vmbucketname"`
+        VmdkName string `json:"vmdkname"`
+        UploadId string `json:"uploadId"`
+        FileBytes []byte `json:"fileBytes"`
+        PartNumber int `json:"partNumber"`
+}
+
+var completeUploadFileRequest struct {
+	VmBucketName string `json:"vmbucketname"`
+        VmdkName string `json:"vmdkname"`
+        UploadId string `json:"uploadId"`
+        CompletedUploadParts []*s3.CompletedPart `json:"completedUploadParts"`
+}
+
 
 // List all of your available buckets (Vms related data) in IBM cloud
 func listProtectedVms(c *gin.Context) {
@@ -70,21 +112,17 @@ func jsonWriteMessage(c *gin.Context, retString string) {
     w.(http.Flusher).Flush()
 }
 
-var newVMName struct {
-	Name string `json:"name"`
-}
-
 // createVMBucket adds an bucket from JSON received in the request body.
 func createVMBucket(c *gin.Context) {
 
     // Call BindJSON to bind the received JSON to bucket
-    if err := c.BindJSON(&newVMName); err != nil {
+    if err := c.BindJSON(&createVMBucketRequest); err != nil {
 	fmt.Printf("\n Error: Creating a new bucket failed...\n\n")
 	c.IndentedJSON(http.StatusInternalServerError, "Error: Unable to create bucket...")
         return
     }
  
-    retString  := createBucket(newVMName.Name)
+    retString  := createBucket(createVMBucketRequest.VmBucketName)
 
     jsonWriteMessage(c,retString)
 
@@ -94,23 +132,18 @@ func createVMBucket(c *gin.Context) {
 func deleteVMBucket(c *gin.Context) {
 
     // Call BindJSON to bind the received JSON to bucket
-    if err := c.BindJSON(&newVMName); err != nil {
+    if err := c.BindJSON(&deleteVMBucketRequest); err != nil {
         fmt.Printf("\n Error: Deleting the bucket failed...\n\n")
 	c.IndentedJSON(http.StatusInternalServerError, "Error: Unable to delete the bucket...")
         return
     }
  
-    fmt.Printf("\nDeleting the bucket named '" + newVMName.Name + "'...\n\n")
-    retString  := deleteBucket(newVMName.Name)
+    fmt.Printf("\nDeleting the bucket named '" + deleteVMBucketRequest.VmBucketName + "'...\n\n")
+    retString  := deleteBucket(deleteVMBucketRequest.VmBucketName)
 
     jsonWriteMessage(c,retString)
-    //c.IndentedJSON(http.StatusCreated, newVMName.Name)
+    //c.IndentedJSON(http.StatusCreated, deleteVMBucketRequest.VmBucketName)
 
-}
-
-var getObjName struct {
-	BucketName string `json:"bucketname"`
-	ObjKey string `json:"objkey"`
 }
 
 //Get VAIO Obj
@@ -119,39 +152,42 @@ func getVaioObj(c *gin.Context) {
     var retString string
 
     // Call BindJSON to bind the received JSON to getNewObjName structure
-    if err := c.BindJSON(&getObjName); err != nil {
+    if err := c.BindJSON(&getVaioObjRequest); err != nil {
         retString = "\nError: Getting the object from bucket failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
     }
 
-    fmt.Printf("\nGetting the object from bucket " + getObjName.BucketName +" with key "+ getObjName.ObjKey + "...\n\n")
-    retString = readSyncObjectBucket(svc, getObjName.BucketName, getObjName.ObjKey)
+    fmt.Printf("\nGetting the object from bucket " + getVaioObjRequest.VmBucketName+" with key "+ getVaioObjRequest.VmdkName+ "...\n\n")
+    retString = readSyncObjectBucket(svc, getVaioObjRequest.VmBucketName, getVaioObjRequest.VmdkName,getVaioObjRequest.BlockNumber)
 
     jsonWriteMessage(c,retString)
-}
-
-var addNewObjName struct {
-	BucketName string `json:"bucketname"`
-	ObjKey string `json:"objkey"`
-	Data string `json:"data"`
 }
 
 //Add VAIO Obj
 func addVaioObj(c *gin.Context) {
 
-    var retString string
+    //var retString string
 
     // Call BindJSON to bind the received JSON to addNewObjName structure
-    if err := c.BindJSON(&addNewObjName); err != nil {
-        retString = "\nError: Adding the object into the bucket failed...\n\n"
+    if err := c.BindJSON(&addVaioObjRequest); err != nil {
+        //fmt.Printf("\nAdding the object into bucket " + addVaioObjReq.VmBucketName+" with key "+ addVaioObjReq.VmdkName + "...\n\n")
+        retString := "\nError: Adding the object into the bucket failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
     }
 
-    retString = writeSyncObjectBucket(svc, addNewObjName.BucketName, addNewObjName.ObjKey, addNewObjName.Data)
+    //fmt.Printf("\nAdding the object from bucket " + addVaioObjRequest.VmBucketName +" with key "+ addVaioObjRequest.VmdkName + "with blocknumber " +strconv.Itoa(addVaioObjRequest.BlockNumber) + "...\n\n")
 
-    jsonWriteMessage(c,retString)
+    retString,err := writeSyncObjectBucket(svc, addVaioObjRequest.VmBucketName, addVaioObjRequest.VmdkName, addVaioObjRequest.BlockNumber, addVaioObjRequest.BlockData)
+
+    if err != nil {
+        //retString = "\nError: Adding the object into bucket failed...\n\n"
+        c.JSON(http.StatusInternalServerError, gin.H{"retString": retString})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"retString": retString})
+    //jsonWriteMessage(c,retString)
 }
 
 //uploadFileObject
@@ -164,23 +200,19 @@ func uploadFileObj(c *gin.Context) {
 // Upload File : Step 1: Start the Upload (create object on IBM Cloud). UploadID will be returned to client, which will be used for consequent upload requests of parts of file
 //               Step 2: Read the file parts in fixed size (let us say 5MB) and Upload each part. Save the reurn value related to uploadpart in an array
 //               Step 3: Send Complete Upload request with all uploaded return values
-var startUploadFileObjName struct {
-	BucketName string `json:"bucketname"`
-	ObjKey string `json:"objkey"`
-}
 
 //startUploadFileObj
 func startUploadFileObj(c *gin.Context) {
     var retString string
 
     // Call BindJSON to bind the received JSON to addNewObjName structure
-    if err := c.BindJSON(&startUploadFileObjName); err != nil {
+    if err := c.BindJSON(&startUploadVmdkFileRequest); err != nil {
         retString = "\nError: Starting upload the object into the bucket failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
     }
 
-    resp,err1 := createMultipartUploadObjectBucket(svc,startUploadFileObjName.BucketName, startUploadFileObjName.ObjKey) 
+    resp,err1 := createMultipartUploadObjectBucket(svc,startUploadVmdkFileRequest.VmBucketName, startUploadVmdkFileRequest.VmdkName) 
     if err1 != nil {
         retString = "\nError: Uploading the object into bucket failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
@@ -190,26 +222,18 @@ func startUploadFileObj(c *gin.Context) {
     return
 }
 
-var uploadPartFileObjName struct {
-	BucketName string `json:"bucketname"`
-	ObjKey string `json:"objkey"`
-        UploadId string `json:"uploadId"`
-        FileBytes []byte `json:"fileBytes"`
-        PartNumber int `json:"partNumber"`
-}
-
 //UploadPartFileObj
 func uploadPartFileObj(c *gin.Context) {
     var retString string
 
     // Call BindJSON to bind the received JSON to addNewObjName structure
-    if err := c.BindJSON(&uploadPartFileObjName); err != nil {
+    if err := c.BindJSON(&uploadPartFileRequest); err != nil {
         retString = "\nError: Starting upload the part object into the bucket failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
     }
 
-    resp,err1 := uploadPartObjectBucket(svc,uploadPartFileObjName.BucketName,uploadPartFileObjName.ObjKey,uploadPartFileObjName.UploadId,uploadPartFileObjName.FileBytes,uploadPartFileObjName.PartNumber)
+    resp,err1 := uploadPartObjectBucket(svc,uploadPartFileRequest.VmBucketName,uploadPartFileRequest.VmdkName,uploadPartFileRequest.UploadId,uploadPartFileRequest.FileBytes,uploadPartFileRequest.PartNumber)
     if err1 != nil {
         retString = "\nError: Uploading the part object into bucket failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
@@ -219,26 +243,19 @@ func uploadPartFileObj(c *gin.Context) {
     return
 }
 
-var completeUploadFileObjName struct {
-	BucketName string `json:"bucketname"`
-	ObjKey string `json:"objkey"`
-        UploadId string `json:"uploadId"`
-        CompletedUploadParts []*s3.CompletedPart `json:"completedUploadParts"`
-}
-
 //completeUploadFileObj
 func completeUploadFileObj(c *gin.Context) {
     var retString string
 
     // Call BindJSON to bind the received JSON to addNewObjName structure
-    if err := c.BindJSON(&completeUploadFileObjName); err != nil {
+    if err := c.BindJSON(&completeUploadFileRequest); err != nil {
         retString = "\nError: Completing upload the object into the bucket failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
     }
 
-    resp,err1 := completeMultipartUploadObjectBucket(svc,completeUploadFileObjName.BucketName, completeUploadFileObjName.ObjKey,completeUploadFileObjName.UploadId,
-                 completeUploadFileObjName.CompletedUploadParts)
+    resp,err1 := completeMultipartUploadObjectBucket(svc,completeUploadFileRequest.VmBucketName, completeUploadFileRequest.VmdkName,completeUploadFileRequest.UploadId,
+                 completeUploadFileRequest.CompletedUploadParts)
     if err1 != nil {
         fmt.Println(err1.Error())
         retString = "\nError: Uploading the object into bucket failed...\n\n"

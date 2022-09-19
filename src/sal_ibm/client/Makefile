@@ -10,5 +10,7 @@ deps:
 #build: deps
 build: 
 	go build -o sal_client_uploadfile sal_client_uploadfile.go
+	go build -o sal_client_sendFileVaioData sal_client_sendFileVaioData.go
 clean:
 	rm -rf sal_client_uploadfile
+	rm -rf sal_client_sendFileVaioData
