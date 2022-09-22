@@ -36,6 +36,7 @@ var getVaioObjRequest struct {
 	VmBucketName string `json:"vmbucketname"`
         VmdkName string `json:"vmdkname"`
         BlockNumber int `json:"blocknumber"`
+        UtcTime string `json:"utctime"`
 }
 
 var startUploadVmdkFileRequest struct {
@@ -159,7 +160,7 @@ func getVaioObj(c *gin.Context) {
     }
 
     fmt.Printf("\nGetting the object from bucket " + getVaioObjRequest.VmBucketName+" with key "+ getVaioObjRequest.VmdkName+ "...\n\n")
-    retString = readSyncObjectBucket(svc, getVaioObjRequest.VmBucketName, getVaioObjRequest.VmdkName,getVaioObjRequest.BlockNumber)
+    retString = readSyncObjectMyBucketVersion(svc, getVaioObjRequest.VmBucketName, getVaioObjRequest.VmdkName,getVaioObjRequest.BlockNumber,getVaioObjRequest.UtcTime)
 
     jsonWriteMessage(c,retString)
 }

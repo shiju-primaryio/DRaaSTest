@@ -8,6 +8,7 @@ import (
 	"fmt"
         "os"
         "bytes"
+        "time"
         "io/ioutil"
         "net/http"
         "github.com/IBM/ibm-cos-sdk-go/aws/credentials/ibmiam"
@@ -213,6 +214,86 @@ func readSyncObjectBucket(svc *s3.S3, bucketName string, vmdk_name string,blockN
         }
     }
     return "Unable to retieve Object from Obj Store"
+}
+
+
+// Read the specific version of Object from the bucket at specific UTC time
+func readSyncObjectMyBucketVersion(svc *s3.S3, bucketName string, vmdk_name string,blockNumber int, utcLatestTime string) string {
+
+    //Object name is FileName_BlockNumber
+    key := vmdk_name+"_"+strconv.Itoa(blockNumber)
+
+    //Fetch version-id of object at specific UTC time
+    obj_version_id := fetchObjectVersionIdAtUtcTime(svc,bucketName,key,utcLatestTime)
+
+    var input s3.GetObjectInput
+
+    if (obj_version_id != "") {
+	    // users will need to create bucket, key (flat string name)
+	    input = s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+		VersionId: aws.String(obj_version_id),
+	    }
+    } else {
+	    // users will need to create bucket, key (flat string name)
+	    input = s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	    }
+    }
+    retry_iter := 1
+    for retry_iter <= 5 {
+	// Call Function to download (Get) an object
+	result, err := svc.GetObject(&input)
+
+        if err != nil {
+                // Print the error, cast err to awserr.Error to get the Code and
+                // Message from an error.
+                fmt.Println(err.Error())
+                return err.Error()
+        } else {
+		data, _ := ioutil.ReadAll(result.Body)
+		fmt.Println(string(data))
+		return string(data)
+        }
+    }
+    return "Unable to retieve Object from Obj Store"
+}
+
+func fetchObjectVersionIdAtUtcTime(svc *s3.S3,bucketname string, objkey string,utclatesttime string) string{
+
+	//List Object Versions
+	input := &s3.ListObjectVersionsInput{
+	    Bucket: aws.String(bucketname),
+	    Prefix: aws.String(objkey),
+	}
+
+	result, err := svc.ListObjectVersions(input)
+	if err != nil {
+	    if aerr, ok := err.(awserr.Error); ok {
+		switch aerr.Code() {
+		default:
+		    fmt.Println(aerr.Error())
+		}
+	    } else {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+	    }
+	    return ""
+	}
+        latestdatetime, _ := time.Parse("2006-01-02 15:04:05 -0700 UTC", utclatesttime)
+        for _, object := range result.Versions {
+		objectdatetimeModified, _ := time.Parse("2006-01-02 15:04:05 -0700 UTC", (*object.LastModified).UTC().String())
+		if latestdatetime.After(objectdatetimeModified) {
+			fmt.Printf("versionId: %v  %v \n", *object.VersionId,*object.LastModified)
+			return *object.VersionId
+		}
+		fmt.Printf("versionId: %v  %v \n", *object.VersionId,*object.LastModified)
+	}
+	fmt.Println(result)
+	return ""
 }
 
 
