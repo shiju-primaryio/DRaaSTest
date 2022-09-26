@@ -48,7 +48,7 @@ func listBuckets() []string  {
     //exitErrorf("Unable to list buckets, %v", err)
     return nil
   }
-  fmt.Printf("listbucket \n")
+  //fmt.Printf("listbucket \n")
   for _, b := range result.Buckets {
 	buckets = append(buckets,aws.StringValue(b.Name))
   }

@@ -10,12 +10,15 @@ import (
         "os"
         "io"
         "log"
+        "net"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
         //"strconv"
         //REST Server Gin
         "net/http"
 	"github.com/gin-gonic/gin"
 )
+
+var ipaddr string
 
 var addVaioObjRequest struct {
         VmBucketName string `json:"vmbucketname"`
@@ -70,6 +73,9 @@ func listProtectedVms(c *gin.Context) {
     return
   }
 
+  c.JSON(http.StatusOK, result)
+  /*
+  c.JSON(http.StatusOK, gin.H{"ListOfProtectedVMs": result})
   w := c.Writer
 	header := w.Header()
 	header.Set("Transfer-Encoding", "chunked")
@@ -94,6 +100,7 @@ func listProtectedVms(c *gin.Context) {
 		</html>
   `))
   w.(http.Flusher).Flush()
+  */
 }
 
 func jsonWriteMessage(c *gin.Context, retString string) {
@@ -125,6 +132,7 @@ func createVMBucket(c *gin.Context) {
  
     retString  := createBucket(createVMBucketRequest.VmBucketName)
 
+    //c.JSON(http.StatusOK, gin.H{"data": resp})
     jsonWriteMessage(c,retString)
 
 }
@@ -159,7 +167,7 @@ func getVaioObj(c *gin.Context) {
         return
     }
 
-    fmt.Printf("\nGetting the object from bucket " + getVaioObjRequest.VmBucketName+" with key "+ getVaioObjRequest.VmdkName+ "...\n\n")
+    //fmt.Printf("\nGetting the object from bucket " + getVaioObjRequest.VmBucketName+" with key "+ getVaioObjRequest.VmdkName+ "...\n\n")
     retString = readSyncObjectMyBucketVersion(svc, getVaioObjRequest.VmBucketName, getVaioObjRequest.VmdkName,getVaioObjRequest.BlockNumber,getVaioObjRequest.UtcTime)
 
     jsonWriteMessage(c,retString)
@@ -282,11 +290,27 @@ func startLogging() {
     if err != nil {
         exitErrorf("Unable to create log file %v", err)
     }
-    fmt.Printf("\n Starting Gin Rest Server at port 8080.\n\n Note: Logs will be stored at " + filename +" ...\n\n")
 
+    fmt.Printf("\n Note: Logs will be stored at " + filename +" ...\n\n")
     gin.DefaultWriter = io.MultiWriter(f)
     // If you need to write the logs to file and console at the same time.
     //gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+}
+
+func GetLocalIP() string {
+    addrs, err := net.InterfaceAddrs()
+    if err != nil {
+        return ""
+    }
+    for _, address := range addrs {
+        // check the address type and if it is not a loopback the display it
+        if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+            if ipnet.IP.To4() != nil {
+                return ipnet.IP.String()
+            }
+        }
+    }
+    return ""
 }
 
 func main() {
@@ -330,6 +354,10 @@ func main() {
     rest_server.POST("/uploadPartFileObj", uploadPartFileObj)      // Upload File PART
     rest_server.POST("/completeUploadFileObj", completeUploadFileObj)      // Complete Upload File
 
+    ipaddr = GetLocalIP()
+    //fmt.Printf("\n Local ipaddress = %s \n",ipaddr)
+    ipaddr_port_str := ipaddr+":8080"
+    fmt.Printf("\n Starting Gin Rest Server on ip "+ipaddr+" at port 8080.\n")
     // Start the server 
-    rest_server.Run("localhost:8080")
+    rest_server.Run(ipaddr_port_str)
 }
