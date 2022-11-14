@@ -1,0 +1,16 @@
+apiVersion: site.primaryio.com/v1alpha1
+kind: Site
+metadata:
+  labels:
+    app.kubernetes.io/name: site
+    app.kubernetes.io/instance: site-sample
+    app.kubernetes.io/part-of: site
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: site
+  name: site-sample
+spec:
+  vCenter:
+    ip: 8.8.8.8
+    username: pio
+    password: abc
+    
