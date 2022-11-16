@@ -142,6 +142,20 @@ resource "ibm_is_security_group_rule" "ingress_vpc2_all" {
     }
 }
 
+resource "ibm_is_security_group_rule" "ingress_vpc3_all" {
+    group     = ibm_is_security_group.jumphost-sg.id
+    direction = "inbound"
+    remote    = var.zone_3_cidr_blocks
+
+    tcp {
+      port_min = 1
+      port_max = 65535
+    }
+}
+
+
+
+
 resource "ibm_is_security_group_rule" "egress_rdp_all" {
     group     = ibm_is_security_group.jumphost-sg.id
     direction = "outbound"

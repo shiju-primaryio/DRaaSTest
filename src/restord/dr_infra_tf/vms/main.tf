@@ -23,6 +23,13 @@ data "vsphere_compute_cluster" "cluster" {
   depends_on = [vsphere_compute_cluster.cluster]
 }
 
+#get latest thumbprint of ESXi host
+data "vsphere_host_thumbprint" "thumbprint-esxi" {
+  address = "${var.esxihostname}"
+  insecure = true
+}
+
+
 #Add ESXi host to the cluster
 resource vsphere_host "host" {
   hostname = "${var.esxihostname}"
@@ -30,6 +37,7 @@ resource vsphere_host "host" {
   password = "${var.esxipassword}"
   cluster = data.vsphere_compute_cluster.cluster.id
   depends_on = [vsphere_compute_cluster.cluster]
+  thumbprint = data.vsphere_host_thumbprint.thumbprint-esxi.id
 }
 
 data "vsphere_host" "host" {
