@@ -12,6 +12,8 @@ import (
         "io"
         "strings"
         "log"
+	"encoding/json"
+	"io/ioutil"
         "net"
         "net/http"
 	"github.com/gin-gonic/gin"
@@ -46,7 +48,10 @@ var startDRForSiteRequest struct {
         VmLists  []VM `json:"vmlist,omitempty"`
 }
 
+var failover_progress string = "Failover_not_started"
+
 func getDRStatusForSite(c *gin.Context) {
+    c.JSON(http.StatusOK, failover_progress)
     return
 }
 
@@ -95,6 +100,11 @@ func startDRForSite(c *gin.Context) {
         return
     }
 
+    file, _ := json.MarshalIndent(startDRForSiteRequest.VmLists, "", " ")
+    //file, _ := json.Marshal(startDRForSiteRequest.VmLists, "", " ")
+
+    _ = ioutil.WriteFile("VmListstest.json", file, 0644)
+
     resp,err1 := executeDRForSiteScript(startDRForSiteRequest.SiteName, startDRForSiteRequest.VmLists)
     if err1 != nil {
         fmt.Println(err1.Error())
@@ -106,13 +116,15 @@ func startDRForSite(c *gin.Context) {
     return
 }
 
-
 func executeDRForSiteScript(sitename string,vmlists []VM ) (string,error) {
+    failover_progress ="Failover_started"
     cmd, err := exec.Command("/bin/sh", "./create_vms_using_terraform.sh").Output()
     if err != nil {
     fmt.Printf("error %s", err)
+    failover_progress="Error occured"
     }
     output := string(cmd)
+    failover_progress="Failover_completed"
     return output,err
 }
 
@@ -185,9 +197,9 @@ func main() {
      }))
 
     // GET POST Requests
-    rest_server.GET("/getDRStatusForSite", getDRStatusForSite) // get DR status for site
-    rest_server.POST("/startDRForSite", startDRForSite)    // Start DR for site
-    rest_server.GET("/getDRVcenterDetails", getDRVcenterDetails) // get DR status for site
+    rest_server.GET("/getDRStatusForSite", CORSMiddleware(), getDRStatusForSite) // get DR status for site
+    rest_server.POST("/startDRForSite", CORSMiddleware(), startDRForSite)    // Start DR for site
+    rest_server.GET("/getDRVcenterDetails",  CORSMiddleware(),getDRVcenterDetails) // get DR status for site
 
     //start Logging
     startLogging()
@@ -199,5 +211,23 @@ func main() {
     fmt.Printf("\n Starting RestoreD Rest Server on ip "+ipaddr+" at port 8080.\n")
 
     // Start the server 
-    rest_server.Run(ipaddr_port_str)
+    //rest_server.Run(ipaddr_port_str)
+    rest_server.RunTLS(ipaddr_port_str,"./certs/restordserver.crt","./certs/restordserver.key")
+}
+
+
+func CORSMiddleware() gin.HandlerFunc {
+	//Hack for preflight request. Need to find a better way
+    return func(c *gin.Context) {
+        // c.Writer.Header().Set("Access-Control-Allow-Origin", "https://192.168.1.10:4200")
+        // c.Writer.Header().Set("Access-Control-Allow-Origin", "https://192.168.29.93:4200")
+        c.Writer.Header().Set("Access-Control-Allow-Origin", "https://localhost:4200")
+        c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+        c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+        if c.Request.Method == "OPTIONS" {
+            c.AbortWithStatus(204)
+            return
+        }
+		c.Next()
+    }
 }
