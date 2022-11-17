@@ -37,7 +37,7 @@ type VM struct {
 
 // Disk configuration details
 type Disk struct {
-	UnitNumber      int    `json:"unit_number,omitempty"`
+	UnitNumber      int    `json:"unit_number"`
 	Size            int    `json:"size,omitempty"`
 	Label           string `json:"label,omitempty"`
 	ThinProvisioned bool   `json:"thin_provisioned,omitempty"`
@@ -45,7 +45,7 @@ type Disk struct {
 // Start DR for Site
 var startDRForSiteRequest struct {
         SiteName string `json:"sitename"`
-        VmLists  []VM `json:"vmlist,omitempty"`
+        VmList  []VM `json:"vmlist,omitempty"`
 }
 
 var failover_progress string = "Failover_not_started"
@@ -100,12 +100,11 @@ func startDRForSite(c *gin.Context) {
         return
     }
 
-    file, _ := json.MarshalIndent(startDRForSiteRequest.VmLists, "", " ")
-    //file, _ := json.Marshal(startDRForSiteRequest.VmLists, "", " ")
+    file, _ := json.MarshalIndent(startDRForSiteRequest, "", " ")
 
-    _ = ioutil.WriteFile("VmListstest.json", file, 0644)
+    _ = ioutil.WriteFile("dr_infra_tf/CreateVmList.json", file, 0644)
 
-    resp,err1 := executeDRForSiteScript(startDRForSiteRequest.SiteName, startDRForSiteRequest.VmLists)
+    resp,err1 := executeDRForSiteScript(startDRForSiteRequest.SiteName, startDRForSiteRequest.VmList)
     if err1 != nil {
         fmt.Println(err1.Error())
         retString = "\nError: executing DRForSite script failed...\n\n"

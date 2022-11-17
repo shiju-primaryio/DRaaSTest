@@ -69,6 +69,12 @@ data "vsphere_network" "mgmt_lan" {
   depends_on = [vsphere_host.host]
 }
 
+/*
+data "vsphere_storage_policy" "praapa_policy" {
+  //name = "primaryio"
+  name = "praapa"
+}
+*/
 resource "vsphere_virtual_machine" "test2" {
   for_each = {for i, v in var.vmlist:  i => v}
   name             = each.value.name
@@ -95,6 +101,7 @@ resource "vsphere_virtual_machine" "test2" {
       label = disk.value.label
       eagerly_scrub    = false
       thin_provisioned = disk.value["thin_provisioned"]
+      //storage_policy_id = "${data.vsphere_storage_policy.praapa_policy.id}"
     }
   }
 

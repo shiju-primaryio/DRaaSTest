@@ -16,6 +16,10 @@ module "vpc_esxi_vcenter" {
   vpcmod_ibmcloudapikey =var.ibmcloud_api_key
 }
 
+locals {
+ vmlist = jsondecode(file("${path.module}/CreateVmList.json"))["vmlist"]
+}
+
 #data ibm_is_bare_metal_server_network_interface {
 
 #}
@@ -23,7 +27,8 @@ module "vms" {
   source = "./vms"
   vmsmod_vsphere_server = module.vpc_esxi_vcenter.vcenter-privateip
   #vsphereserver = module.vpc_esxi_vcenter.vcenter-privateip
-  vmlist="${var.vmlist}"
+  vmlist=local.vmlist
+  #vmlist="${var.vmlist}"
   esxihostname = module.vpc_esxi_vcenter.ESXi-privateip
   #esxi_privateip = module.vpc_esxi_vcenter.ESXi-privateip
 

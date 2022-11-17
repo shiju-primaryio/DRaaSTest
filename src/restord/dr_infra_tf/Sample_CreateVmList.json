@@ -1,0 +1,45 @@
+{
+ "sitename": "",
+ "vmlist": [
+  {
+   "name": "test-vm1",
+   "num_cpus": 1,
+   "memory": 2048,
+   "guest_id": "centos7_64Guest",
+   "disks": [
+    {
+     "unit_number": 0,
+     "size": 16,
+     "label": "test-vm1disk1.vmdk",
+     "thin_provisioned": true
+    },
+    {
+     "unit_number": 1,
+     "size": 32,
+     "label": "test-vm1disk2.vmdk",
+     "thin_provisioned": true
+    }
+   ]
+  },
+  {
+   "name": "test-vm2",
+   "num_cpus": 2,
+   "memory": 4096,
+   "guest_id": "centos7_64Guest",
+   "disks": [
+    {
+     "unit_number": 0,
+     "size": 64,
+     "label": "test-vm2disk1.vmdk",
+     "thin_provisioned": true
+    },
+    {
+     "unit_number": 1,
+     "size": 8,
+     "label": "test-vm2disk2.vmdk",
+     "thin_provisioned": true
+    }
+   ]
+  }
+ ]
+}
