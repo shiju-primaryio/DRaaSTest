@@ -1,0 +1,26 @@
+ Steps to configure gin REST Server:
+
+  1. Unstall go and related packages as with ubuntu 20 go package is of 1.13 version and gin needs >= 1.16 version
+	#apt-get remove golang-go
+	#apt-get remove --auto-remove golang-go
+  2. Install latest go packages
+	# curl -OL https://go.dev/dl/go1.19.linux-amd64.tar.gz
+	# tar -C /usr/local -xvf go1.19.linux-amd64.tar.gz
+	# add following line in ~/.profile
+		export PATH=$PATH:/usr/local/go/binA
+	Check version
+	# go version
+		go version go1.19 linux/amd64
+        Go Configuration
+	# mkdir go_test
+        # go mod init go_test
+	# go mod tidy
+
+  3. Install gin and IBM cloud related packages
+	# go get -u github.com/gin-gonic/gin
+
+  4. Execute make
+        #make
+  5. Execute restord
+        # restord_rest_server & 	
+     Note: RESTORD execution logs will be stored at Log file restord_logs/restord_rest_server_<timestamp>.log 
