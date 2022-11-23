@@ -1,14 +1,17 @@
 
 ## Build VM
+/*
 resource "vsphere_datacenter" "dc" {
   name = "${var.datacentername}"
 }
+*/
 
 data "vsphere_datacenter" "dc" {
   name = "${var.datacentername}"
-  depends_on = [vsphere_datacenter.dc]
+  #depends_on = [vsphere_datacenter.dc]
 }
 
+/*
 resource "vsphere_compute_cluster" "cluster" {
   name = "${var.clustername}"
   datacenter_id = "${data.vsphere_datacenter.dc.id}"
@@ -16,11 +19,12 @@ resource "vsphere_compute_cluster" "cluster" {
   drs_automation_level = "fullyAutomated"
   ha_enabled = false
 }
+*/
 
 data "vsphere_compute_cluster" "cluster" {
   name = "${var.clustername}"
   datacenter_id = data.vsphere_datacenter.dc.id
-  depends_on = [vsphere_compute_cluster.cluster]
+  #depends_on = [vsphere_compute_cluster.cluster]
 }
 
 #get latest thumbprint of ESXi host
@@ -29,7 +33,7 @@ data "vsphere_host_thumbprint" "thumbprint-esxi" {
   insecure = true
 }
 
-
+/*
 #Add ESXi host to the cluster
 resource vsphere_host "host" {
   hostname = "${var.esxihostname}"
@@ -39,41 +43,43 @@ resource vsphere_host "host" {
   depends_on = [vsphere_compute_cluster.cluster]
   thumbprint = data.vsphere_host_thumbprint.thumbprint-esxi.id
 }
+*/
 
 data "vsphere_host" "host" {
   name = "${var.esxihostname}"
   datacenter_id = "${data.vsphere_datacenter.dc.id}"
-  depends_on = [vsphere_host.host]
+  #depends_on = [vsphere_host.host]
 }
 
 data "vsphere_datastore" "datastore" {
   name = "${var.datastorename}"
   datacenter_id = "${data.vsphere_datacenter.dc.id}"
-  depends_on = [vsphere_host.host]
+  #depends_on = [vsphere_host.host]
 }
 
+/*
 resource "vsphere_resource_pool" "pool" {
   name = "${var.resourcepoolname}"
   parent_resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
 }
+*/
 
 data "vsphere_resource_pool" "pool" {
   name = "${var.resourcepoolname}"
   datacenter_id = "${data.vsphere_datacenter.dc.id}"
-  depends_on = [vsphere_resource_pool.pool]
+  #depends_on = [vsphere_resource_pool.pool]
 }
 
 data "vsphere_network" "mgmt_lan" {
   name = "${var.vsphere_networkname}"
   datacenter_id = "${data.vsphere_datacenter.dc.id}"
-  depends_on = [vsphere_host.host]
+  #depends_on = [vsphere_host.host]
 }
 
 data "vsphere_storage_policy" "praapa_policy" {
   //name = "primaryio"
   name = "primaryio-replication"
 }
-
 resource "vsphere_virtual_machine" "test2" {
   for_each = {for i, v in var.vmlist:  i => v}
   name             = each.value.name
@@ -85,9 +91,8 @@ resource "vsphere_virtual_machine" "test2" {
   memory     = each.value.memory
   wait_for_guest_net_timeout = 0
   force_power_off = true
-  enable_logging  = true
-
   guest_id = each.value.guest_id
+  enable_logging  = true
   nested_hv_enabled =true
   network_interface {
    network_id     = "${data.vsphere_network.mgmt_lan.id}"
@@ -103,6 +108,9 @@ resource "vsphere_virtual_machine" "test2" {
       eagerly_scrub    = false
       thin_provisioned = disk.value["thin_provisioned"]
       storage_policy_id = disk.value.policy_name == "primaryio-replication" ? "${data.vsphere_storage_policy.praapa_policy.id}" : null
+      #storage_policy_id = disk.value["policy_name"] != "primaryio-replication" ? "${data.vsphere_storage_policy.praapa_policy.id}" : null
+
+      #storage_policy_id = "${data.vsphere_storage_policy.praapa_policy.id}"
     }
   }
 

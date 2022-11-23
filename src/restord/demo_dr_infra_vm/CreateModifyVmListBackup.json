@@ -1,0 +1,20 @@
+{
+ "sitename": "",
+ "vmlist": [
+  {
+   "name": "linuxVm9",
+   "num_cpus": 1,
+   "memory": 2048,
+   "guest_id": "centos7_64Guest",
+   "disks": [
+    {
+     "unit_number": 0,
+     "size": 3,
+     "label": "linuxVm9.vmdk",
+     "thin_provisioned": false,
+     "policy_name": "a"
+    }
+   ]
+  }
+ ]
+}

@@ -9,15 +9,16 @@ terraform {
   }
 }
 
-
+/*
 module "vpc_esxi_vcenter" {
   source = "./vpc_esxi_vcenter"
   #ibmcloud_api_key =var.ibmcloud_api_key
   vpcmod_ibmcloudapikey =var.ibmcloud_api_key
 }
-
+*/
 locals {
- vmlist = jsondecode(file("${path.module}/CreateModifyVmList.json"))["vmlist"]
+ //vmlist = jsondecode(file("${path.module}/CreateModifyVmList.json"))["vmlist"]
+ vmlist = jsondecode(file("/home/ubuntu/DRaaS/src/restord/dr_infra_vm/CreateModifyVmList.json"))["vmlist"]
 }
 
 #data ibm_is_bare_metal_server_network_interface {
@@ -25,11 +26,13 @@ locals {
 #}
 module "vms" {
   source = "./vms"
-  vmsmod_vsphere_server = module.vpc_esxi_vcenter.vcenter-privateip
+  vmsmod_vsphere_server = "172.16.12.5"
+  #vmsmod_vsphere_server = module.vpc_esxi_vcenter.vcenter-privateip
   #vsphereserver = module.vpc_esxi_vcenter.vcenter-privateip
   vmlist=local.vmlist
   #vmlist="${var.vmlist}"
-  esxihostname = module.vpc_esxi_vcenter.ESXi-privateip
+  esxihostname = "172.16.12.4"
+  #esxihostname = module.vpc_esxi_vcenter.ESXi-privateip
   #esxi_privateip = module.vpc_esxi_vcenter.ESXi-privateip
 
 

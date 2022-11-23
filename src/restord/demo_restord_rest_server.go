@@ -41,7 +41,7 @@ type Disk struct {
 	Size            int    `json:"size,omitempty"`
 	Label           string `json:"label,omitempty"`
 	ThinProvisioned bool   `json:"thin_provisioned"`  // removed omitempty , as value could be false i.e. 0.
-	Policyname      string `json:"policy_name"`  // This can be empty, so omitempty is not applicable
+	Policyname      string `json:"policy_name"`  // This can be empty, so omitempty is not applicable 
 }
 // Start DR for Site
 var startDRForSiteRequest struct {
@@ -77,7 +77,7 @@ type vCenterDetails struct {
 }
 
 func getDRVcenterDetails(c *gin.Context) {
-    b, err := os.ReadFile("dr_infra_tf/vcenter_details.txt")
+    b, err := os.ReadFile("demo_dr_infra_vm/vcenter_details.txt")
     if err != nil {
         fmt.Print(err)
 	c.IndentedJSON(http.StatusInternalServerError, "Error:vCenter Server is still not created")
@@ -99,7 +99,7 @@ func startDRForSite(c *gin.Context) {
 
     var retString string
 
-    os.Remove("dr_infra_tf/vcenter_details.txt")
+    os.Remove("demo_dr_infra_vm/vcenter_details.txt")
     // Call BindJSON to bind the received JSON startDRForSiteRequest structure
     if err := c.BindJSON(&startDRForSiteRequest); err != nil {
         retString := "\nError: Checking startDRForSite failed...\n\n"
@@ -109,7 +109,8 @@ func startDRForSite(c *gin.Context) {
 
     file, _ := json.MarshalIndent(startDRForSiteRequest, "", " ")
 
-    _ = ioutil.WriteFile("dr_infra_tf/CreateModifyVmList.json", file, 0644)
+    _ = ioutil.WriteFile("demo_dr_infra_vm/CreateModifyVmList.json", file, 0644)
+    //_ = ioutil.WriteFile("dr_infra_tf/CreateModifyVmList.json", file, 0644)
 
     resp,err1 := executeDRForSiteScript(startDRForSiteRequest.SiteName, startDRForSiteRequest.VmList)
     if err1 != nil {
@@ -133,13 +134,18 @@ func attachPolicyToVMsForSite(c *gin.Context) {
         return
     }
 
-    os.Rename("dr_infra_tf/CreateModifyVmList.json","dr_infra_tf/CreateModifyVmListBackup.json")
+    os.Rename("demo_dr_infra_vm/CreateModifyVmList.json","demo_dr_infra_vm/CreateModifyVmListBackup.json")
     file, _ := json.MarshalIndent(attachPolicyToVMsForSiteRequest, "", " ")
-    _ = ioutil.WriteFile("dr_infra_tf/CreateModifyVmList.json", file, 0644)
+    _ = ioutil.WriteFile("demo_dr_infra_vm/CreateModifyVmList.json", file, 0644)
+
+    //_ = ioutil.WriteFile("dr_infra_tf/CreateModifyVmList.json", file, 0644)
+    //_ = ioutil.WriteFile("dr_infra_tf/CreateModifyVmList.json", file, 0644)
+    //_ = ioutil.WriteFile("dr_infra_tf/CreateVmList.json", file, 0644)
 
     resp,err1 := attachPolicyToVMsForSiteScript()
     if err1 != nil {
         fmt.Println(err1.Error())
+        //retString = resp+"\nError: executing attachPolicy for failover Site script failed...\n\n"
         retString = "\nError: executing attachPolicy for failover Site script failed...\n\n"
 	c.IndentedJSON(http.StatusInternalServerError, retString)
         return
@@ -150,7 +156,7 @@ func attachPolicyToVMsForSite(c *gin.Context) {
 
 func executeDRForSiteScript(sitename string,vmlists []VM ) (string,error) {
     failover_progress ="Failover_Started"
-    cmd, err := exec.Command("/bin/sh", "./create_vms_using_terraform.sh").Output()
+    cmd, err := exec.Command("/bin/sh", "./demo_create_vms_using_terraform.sh").Output()
     if err != nil {
     fmt.Printf("error %s", err)
     failover_progress="Error occured while creating infrastructre "
@@ -162,7 +168,7 @@ func executeDRForSiteScript(sitename string,vmlists []VM ) (string,error) {
 
 func attachPolicyToVMsForSiteScript() (string,error) {
     failover_progress ="PrimaryIO_Policy_Attachment_Started"
-    cmd, err := exec.Command("/bin/sh", "./attach_policy_using_terraform.sh").Output()
+    cmd, err := exec.Command("/bin/sh", "./demo_attach_policy_using_terraform.sh").Output()
     if err != nil {
     fmt.Printf("error %s", err)
     failover_progress="Error occured while attaching policy to VMs"
@@ -225,7 +231,7 @@ func main() {
     //start Logging
     startLogging()
 
-    os.Remove("dr_infra_tf/vcenter_details.txt")
+    os.Remove("demo_dr_infra_vm/vcenter_details.txt")
     rest_server.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
     	// your custom format
 	return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",

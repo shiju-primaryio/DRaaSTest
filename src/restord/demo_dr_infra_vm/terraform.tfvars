@@ -9,8 +9,8 @@ vmlist =[{
 	{
 	unit_number=0
 	size = 16,
-        policy_name ="abcd",
 	label = "test-vm5disk1.vmdk",
+        policy_name ="abcd",
 	thin_provisioned = true,
 	},
 	{
