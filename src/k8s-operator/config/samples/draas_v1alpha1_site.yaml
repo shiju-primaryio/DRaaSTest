@@ -1,0 +1,30 @@
+apiVersion: draas.primaryio.com/v1alpha1
+kind: Site
+metadata:
+  labels:
+    app.kubernetes.io/name: site
+    app.kubernetes.io/instance: site-sample
+    app.kubernetes.io/part-of: k8s-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: k8s-operator
+  name: site-sample
+spec:
+  isPrimarySite: true
+  # We can skip sending info of remote site at the time of site creation. remoteSite will be part of PATCH call
+  remoteSite: ""
+  vCenter:
+    ip: 10.183.162.75
+    username: administrator@vmware.primaryio.local
+    password: Vwadmin@123
+  # vmList will be used to send list of VMs to power it ON/OFF. Not needed at the time of Site creation. vmList will be part of PATCH call
+  vmList:
+  - uuid: "1234"
+    powerOn: false
+  - uuid: "5678"
+    powerOn: false
+  storagePolicySpec:
+    host:
+    port:
+    secret:
+    enckey:
+    user:

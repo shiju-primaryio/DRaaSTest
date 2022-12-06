@@ -1,0 +1,28 @@
+domain: primaryio.com
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: k8s-operator
+repo: github.com/CacheboxInc/DRaaS/src/k8s-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: primaryio.com
+  group: draas
+  kind: Site
+  path: github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: primaryio.com
+  group: draas
+  kind: AppDRUnit
+  path: github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"
