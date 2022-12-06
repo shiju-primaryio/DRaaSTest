@@ -76,6 +76,7 @@ type SiteStatus struct {
 
 	SiteState SiteState  `json:"state,omitempty"`
 	VMList    []VMStatus `json:"vmList,omitempty"`
+	Error     ErrorField `json:"error,omitempty"`
 }
 
 type SiteState string
@@ -110,6 +111,10 @@ type Disk struct {
 	UnitNumber      int32    `json:"unit_number"`
 	Label           string   `json:"label,omitempty"`
 	IofilterName    []string `json:"iofilter_name,omitempty"`
+}
+
+type ErrorField struct {
+	ErrorMessage string `json:"errorMsg,omitempty"`
 }
 
 //+kubebuilder:object:root=true

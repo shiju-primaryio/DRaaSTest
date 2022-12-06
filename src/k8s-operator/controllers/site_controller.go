@@ -19,13 +19,17 @@ package controllers
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
 )
+
+var logger = log.Log.WithName("controller_site")
 
 // SiteReconciler reconciles a Site object
 type SiteReconciler struct {
@@ -50,6 +54,59 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
+	reqLogger := logger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger.Info("Reconciling Site Config")
+
+	var err error
+	// Fetch the Site instance
+	instance := &draasv1alpha1.Site{}
+	err = r.Client.Get(context.TODO(), req.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	defer func() {
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+	}()
+
+	// If Site is deleted, initiate cleanup.
+	if instance.DeletionTimestamp != nil {
+		reqLogger.Info("Cleanup initiated for ", "Site", instance.Name)
+		// TODO: Add cleanup of resources owned by Site. Site owns Storage policy created at the time of site addition
+		reqLogger.Info("Cleanup successful", "Site", instance.Name)
+		instance.Finalizers = nil
+		if err = r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update", "Site", instance.Name)
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
+	}
+
+	if instance.Spec.VMList != nil {
+		for _, vmSpec := range instance.Spec.VMList {
+			// powerOnOffVM(vmSpec.UUID, vmSpec.PowerOn)
+			// instance.Status.
+		}
+	}
+
+	// Fetch VMs from VCenter on Site Creation only
+	vmList, err := getVMList(instance.Spec.VCenter)
+	if err != nil {
+		reqLogger.Error(err, "Failed to fetch VM list")
+	}
+
+	instance.Status.VMList = vmList
 
 	return ctrl.Result{}, nil
 }
