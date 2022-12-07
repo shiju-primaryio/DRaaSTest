@@ -62,3 +62,24 @@ type AppDRUnitList struct {
 func init() {
 	SchemeBuilder.Register(&AppDRUnit{}, &AppDRUnitList{})
 }
+
+type VmPolicySchema struct {
+	VmUuid     string `json:"vm_uuid,omitempty"`
+	PolicyName string `json:"policy_name,omitempty"`
+	VcHostIp   string `json:"vc_host_ip,omitempty"`
+	VcUsername string `json:"vc_user_name,omitempty"`
+	VcPassword string `json:"vc_password,omitempty"`
+}
+
+type IsPolicyExistsSchema struct {
+	PolicyName string `json:"policy_name,omitempty"`
+	VcHostIp   string `json:"vc_host_ip,omitempty"`
+	VcUsername string `json:"vc_user_name,omitempty"`
+	VcPassword string `json:"vc_password,omitempty"`
+}
+
+type PolicyDetails struct {
+	IsPolicyExists bool   `json:"is_policy_exists,omitempty"`
+	PolicyName     string `json:"policy_name,omitempty"`
+	PolicyId       string `json:"policy_id,omitempty"`
+}
