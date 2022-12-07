@@ -13,6 +13,9 @@ import (
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
+
+	"github.com/vmware/govmomi/pbm"
+	pbmtypes "github.com/vmware/govmomi/pbm/types"
 )
 
 func getVMList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, error) {
@@ -95,6 +98,142 @@ func getVMList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, err
 	}
 
 	return vmList, nil
+}
+
+func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails draasv1alpha1.StoragePolicySpec) (string, error) {
+
+	var PolicyIdStr string
+	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
+	u, err := url.Parse(urlString)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	//TODO: Add Code to Check whether Policy exists
+
+	// Connect and log in to ESX or vCenter
+	c, err := govmomi.NewClient(ctx, u, true)
+	if err != nil {
+		fmt.Println("Error connecting to ESX : ", err)
+		return "", err
+	}
+
+	pbmSi, err := pbm.NewClient(ctx, c.Client)
+	if err != nil {
+		fmt.Println("Error creating pbm client : ", err)
+		return "", err
+	}
+
+	profile1 := pbmtypes.PbmCapabilityProfileCreateSpec{
+		Name: policyDetails.Name,
+
+		Description: policyDetails.Description,
+
+		Category: string(pbmtypes.PbmProfileCategoryEnumREQUIREMENT),
+
+		ResourceType: pbmtypes.PbmProfileResourceType{
+			ResourceType: policyDetails.ResourceType,
+		},
+
+		Constraints: &pbmtypes.PbmCapabilitySubProfileConstraints{
+			PbmCapabilityConstraints: pbmtypes.PbmCapabilityConstraints{},
+			SubProfiles: []pbmtypes.PbmCapabilitySubProfile{
+				{
+					Name: "Host based services",
+					Capability: []pbmtypes.PbmCapabilityInstance{
+						{
+							Id: pbmtypes.PbmCapabilityMetadataUniqueId{
+								Namespace: policyDetails.Namespace,
+								Id:        policyDetails.NamespaceId,
+							},
+							Constraint: []pbmtypes.PbmCapabilityConstraintInstance{
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "blocksize",
+											Operator: "",
+											Value:    int32(policyDetails.Blocksize),
+										},
+									},
+								},
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "queuesize",
+											Operator: "",
+											Value:    int32(policyDetails.Queuesize),
+										},
+									},
+								},
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "outsize",
+											Operator: "",
+											Value:    int32(policyDetails.Outsize),
+										},
+									},
+								},
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "port",
+											Operator: "",
+											Value:    policyDetails.Port,
+										},
+									},
+								},
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "user",
+											Operator: "",
+											Value:    policyDetails.User,
+										},
+									},
+								},
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "secret",
+											Operator: "",
+											Value:    policyDetails.Secret,
+										},
+									},
+								},
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "host",
+											Operator: "",
+											Value:    policyDetails.Host,
+										},
+									},
+								},
+								{
+									PropertyInstance: []pbmtypes.PbmCapabilityPropertyInstance{
+										{
+											Id:       "enckey",
+											Operator: "",
+											Value:    policyDetails.Enckey,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	id, err := pbmSi.CreateProfile(ctx, profile1)
+	if err != nil {
+		fmt.Println("Error creating profile : ", err)
+		return "", err
+	}
+	PolicyIdStr = id.UniqueId
+	fmt.Println("Policy ID: ", id.UniqueId)
+	return PolicyIdStr, err
 }
 
 func GetVmdks(vm mo.VirtualMachine) []draasv1alpha1.Disk {
