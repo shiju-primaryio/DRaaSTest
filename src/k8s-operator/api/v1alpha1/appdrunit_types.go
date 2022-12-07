@@ -29,7 +29,9 @@ type AppDRUnitSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of AppDRUnit. Edit appdrunit_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Site              string   `json:"site,omitempty"`
+	ProtectVMUUIDList []string `json:"protectvmuuidList,omitempty"`
+	Description       string   `json:"description,omitempty"`
 }
 
 // AppDRUnitStatus defines the observed state of AppDRUnit

@@ -100,6 +100,11 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 	}
 
+	//If Host field is set, then creating Storage Policy
+	if instance.Spec.StoragePolicy.Host != "" {
+		CreateStoragePolicyForSite(instance.Spec.VCenter, instance.Spec.StoragePolicy)
+	}
+
 	// Fetch VMs from VCenter on Site Creation only
 	vmList, err := getVMList(instance.Spec.VCenter)
 	if err != nil {
