@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/part-of: k8s-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: k8s-operator
+    # app.kubernetes.io/tenant: <tenant-name>
   name: site-sample
 spec:
   isPrimarySite: true
@@ -19,9 +20,9 @@ spec:
   # vmList will be used to send list of VMs to power it ON/OFF. Not needed at the time of Site creation. vmList will be part of PATCH call
   vmList:
   - uuid: "1234"
-    powerOn: false
+    isPowerOn: false
   - uuid: "5678"
-    powerOn: false
+    isPowerOn: false
   storagePolicySpec:
     host:
     port:
