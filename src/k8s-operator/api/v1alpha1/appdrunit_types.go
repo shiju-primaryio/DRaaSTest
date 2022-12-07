@@ -28,16 +28,21 @@ type AppDRUnitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of AppDRUnit. Edit appdrunit_types.go to remove/update
 	Site              string   `json:"site,omitempty"`
+	RemoteSite        string   `json:"remoteSite,omitempty"`
 	ProtectVMUUIDList []string `json:"protectvmuuidList,omitempty"`
 	Description       string   `json:"description,omitempty"`
+	// Application will run on RemoteSite when trigger failover is set to true.
+	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
+	TriggerFailover bool `json:"triggerFailover,omitempty"`
 }
 
 // AppDRUnitStatus defines the observed state of AppDRUnit
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	FailoverStatus string
+	VmdkUUIDMap map[string][string]
 }
 
 //+kubebuilder:object:root=true
