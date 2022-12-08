@@ -18,8 +18,9 @@ import (
 	pbmtypes "github.com/vmware/govmomi/pbm/types"
 )
 
-func getVMList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, error) {
-	var vmList []draasv1alpha1.VMStatus
+func getVmMap(vcenter draasv1alpha1.VCenterSpec) (*(map[string]*draasv1alpha1.VMStatus), error) {
+	vmMap := make(map[string]*draasv1alpha1.VMStatus)
+
 	fmt.Println("vcenter.UserName: ", vcenter.UserName)
 	fmt.Println("vcenter.Password: ", vcenter.Password)
 	fmt.Println("vcenter.IP: ", vcenter.IP)
@@ -89,15 +90,15 @@ func getVMList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, err
 			CPUs:      vm.Config.Hardware.NumCPU,
 			MemoryMB:  vm.Config.Hardware.MemoryMB,
 			GuestID:   vm.Config.GuestId,
-			Uuid:      vm.Config.Uuid,
 			IpAddress: ipAddress,
 			NumDisks:  len(vmdks),
 			Disks:     vmdks,
 		}
-		vmList = append(vmList, vmDB)
+
+		vmMap[vm.Config.Uuid] = &vmDB
 	}
 
-	return vmList, nil
+	return &vmMap, nil
 }
 
 func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails draasv1alpha1.StoragePolicySpec) (string, error) {

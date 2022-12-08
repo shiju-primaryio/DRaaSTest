@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
+	"github.com/golang/glog"
 )
 
 var logger = log.Log.WithName("controller_site")
@@ -75,7 +76,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	defer func() {
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "Failed to update Site status")
+			glog.Errorf("Failed to update Site status : %v", err)
 		}
 	}()
 
@@ -96,22 +97,27 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if instance.Spec.VMList != nil {
 		for _, vmSpec := range instance.Spec.VMList {
 			// powerOnOffVM(vmSpec.UUID, vmSpec.PowerOn)
-			// instance.Status.
+			instance.Status.VmMap[vmSpec.UUID].IsProtected = vmSpec.IsPowerOn
 		}
 	}
 
-	//If Host field is set, then creating Storage Policy
+	//If Host field is set, then create Storage Policy if doesn't exist already
 	if instance.Spec.StoragePolicy.Host != "" {
 		CreateStoragePolicyForSite(instance.Spec.VCenter, instance.Spec.StoragePolicy)
 	}
 
 	// Fetch VMs from VCenter on Site Creation only
-	vmList, err := getVMList(instance.Spec.VCenter)
+	vmMap, err := getVmMap(instance.Spec.VCenter)
 	if err != nil {
 		reqLogger.Error(err, "Failed to fetch VM list")
 	}
 
-	instance.Status.VMList = vmList
+	instance.Status.VmMap = *vmMap
+
+	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+		glog.Errorf("Failed to update Site status : %v", err)
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

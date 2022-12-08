@@ -3,6 +3,7 @@ module github.com/CacheboxInc/DRaaS/src/k8s-operator
 go 1.19
 
 require (
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/vmware/govmomi v0.29.0

@@ -48,8 +48,8 @@ type VCenterSpec struct {
 
 // VMSpec contains VM specifications
 type VMSpec struct {
-	UUID    string `json:"uuid,omitempty"`
-	PowerOn bool   `json:"powerOn,omitempty"`
+	UUID      string `json:"uuid,omitempty"`
+	IsPowerOn bool   `json:"isPowerOn,omitempty"`
 }
 
 // StoragePolicySpec contains Storage Policy specs
@@ -74,9 +74,9 @@ type SiteStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	SiteState SiteState  `json:"state,omitempty"`
-	VMList    []VMStatus `json:"vmList,omitempty"`
-	Error     ErrorField `json:"error,omitempty"`
+	SiteState SiteState            `json:"state,omitempty"`
+	VmMap     map[string]*VMStatus `json:"vmMap,omitempty"`
+	Error     ErrorField           `json:"error,omitempty"`
 }
 
 type SiteState string
@@ -94,11 +94,10 @@ type VMStatus struct {
 	MemoryMB    int32    `json:"memory_mb,omitempty"`
 	GuestID     string   `json:"guest_id,omitempty"`
 	Disks       []Disk   `json:"disks,omitempty"`
-	Uuid        string   `json:"uuid,omitempty"`
 	IsProtected bool     `json:"is_protected,omitempty"`
 	IpAddress   []string `json:"ip_address,omitempty"`
 	NumDisks    int      `json:"num_disks,omitempty"`
-	PowerOn     bool     `json:"powerOn,omitempty"`
+	IsPowerOn   bool     `json:"isPowerOn,omitempty"`
 }
 
 // Disk configuration

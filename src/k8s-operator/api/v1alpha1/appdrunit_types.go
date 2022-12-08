@@ -41,8 +41,8 @@ type AppDRUnitSpec struct {
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	FailoverStatus string
-	VmdkUUIDMap map[string][string]
+	// FailoverStatus string
+	// VmdkUUIDMap map[string][string]
 }
 
 //+kubebuilder:object:root=true
