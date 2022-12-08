@@ -12,7 +12,7 @@ metadata:
 spec:
   isPrimarySite: true
   # We can skip sending info of remote site at the time of site creation. remoteSite will be part of PATCH call
-  remoteSite: ""
+  peerSite: ""
   vCenter:
     ip: 10.20.3.11
     username: Administrator@primaryio.cloud

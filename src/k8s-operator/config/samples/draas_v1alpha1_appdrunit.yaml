@@ -11,8 +11,8 @@ metadata:
 spec:
   # TODO(user): Add fields here
    vCenter:
-    VmUuid:
-    PolicyName:
+    VmUuid: "422aebb4-04f0-a1ed-b286-a94a976bf829"
+    PolicyName: "PIO_PraapaT"
     VcHostIp: 10.20.3.11
     VcUsername: Administrator@primaryio.cloud
     VcPassword: PrimaryIO@123
