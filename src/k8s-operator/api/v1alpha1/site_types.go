@@ -31,7 +31,7 @@ type SiteSpec struct {
 
 	SiteAdmins    []rbacv1.Subject `json:"siteAdmins,omitempty"`
 	IsPrimarySite bool             `json:"isPrimarySite,omitempty"`
-	RemoteSite    string           `json:"remoteSite,omitempty"`
+	PeerSite      string           `json:"peerSite,omitempty"`
 	VCenter       VCenterSpec      `json:"vCenter,omitempty"`
 	VMList        []VMSpec         `json:"vmList,omitempty"`
 	// StoragePolicy should be deleted on deletion of Site
@@ -74,9 +74,10 @@ type SiteStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	SiteState SiteState            `json:"state,omitempty"`
-	VmMap     map[string]*VMStatus `json:"vmMap,omitempty"`
-	Error     ErrorField           `json:"error,omitempty"`
+	SiteState SiteState           `json:"state,omitempty"`
+	VmMap     map[string]VMStatus `json:"vmMap,omitempty"`
+	PolicyId  string              `json:"policyId,omitempty"`
+	Error     ErrorField          `json:"error,omitempty"`
 }
 
 type SiteState string
@@ -98,6 +99,7 @@ type VMStatus struct {
 	IpAddress   []string `json:"ip_address,omitempty"`
 	NumDisks    int      `json:"num_disks,omitempty"`
 	IsPowerOn   bool     `json:"isPowerOn,omitempty"`
+	PowerState  string   `json:"power_state,omitempty"`
 }
 
 // Disk configuration

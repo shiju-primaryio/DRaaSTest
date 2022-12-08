@@ -14,9 +14,9 @@ spec:
   # We can skip sending info of remote site at the time of site creation. remoteSite will be part of PATCH call
   remoteSite: ""
   vCenter:
-    ip: 10.183.162.75
-    username: administrator@vmware.primaryio.local
-    password: Vwadmin@123
+    ip: 10.20.3.11
+    username: Administrator@primaryio.cloud
+    password: PrimaryIO@123
   # vmList will be used to send list of VMs to power it ON/OFF. Not needed at the time of Site creation. vmList will be part of PATCH call
   vmList:
   - uuid: "1234"
@@ -24,8 +24,8 @@ spec:
   - uuid: "5678"
     isPowerOn: false
   storagePolicySpec:
-    host:
-    port:
-    secret:
-    enckey:
-    user:
+    host: "10.21.1.9"
+    port: "7100"
+    secret: "test"
+    enckey: "enckey"
+    user: "test"

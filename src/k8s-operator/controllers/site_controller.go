@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -94,17 +95,28 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return reconcile.Result{}, nil
 	}
 
-	if instance.Spec.VMList != nil {
+	/* if instance.Spec.VMList != nil {
 		for _, vmSpec := range instance.Spec.VMList {
 			// powerOnOffVM(vmSpec.UUID, vmSpec.PowerOn)
 			instance.Status.VmMap[vmSpec.UUID].IsProtected = vmSpec.IsPowerOn
 		}
 	}
+	*/
 
+	var policyId string
 	//If Host field is set, then create Storage Policy if doesn't exist already
+	//if instance.Spec.StoragePolicy.Host != "" && instance.Status.PolicyId != "" {
 	if instance.Spec.StoragePolicy.Host != "" {
-		CreateStoragePolicyForSite(instance.Spec.VCenter, instance.Spec.StoragePolicy)
+		fmt.Println("Creating storage policy.......")
+		policyId, err = CreateStoragePolicyForSite(instance.Spec.VCenter, instance.Spec.StoragePolicy)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create policy.")
+		}
+
+		instance.Status.PolicyId = policyId
 	}
+
+	fmt.Println("get vmMap.......")
 
 	// Fetch VMs from VCenter on Site Creation only
 	vmMap, err := getVmMap(instance.Spec.VCenter)
@@ -112,7 +124,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		reqLogger.Error(err, "Failed to fetch VM list")
 	}
 
-	instance.Status.VmMap = *vmMap
+	instance.Status.VmMap = vmMap
 
 	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 		glog.Errorf("Failed to update Site status : %v", err)

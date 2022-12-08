@@ -18,8 +18,8 @@ import (
 	pbmtypes "github.com/vmware/govmomi/pbm/types"
 )
 
-func getVmMap(vcenter draasv1alpha1.VCenterSpec) (*(map[string]*draasv1alpha1.VMStatus), error) {
-	vmMap := make(map[string]*draasv1alpha1.VMStatus)
+func getVmMap(vcenter draasv1alpha1.VCenterSpec) (map[string]draasv1alpha1.VMStatus, error) {
+	vmMap := make(map[string]draasv1alpha1.VMStatus)
 
 	fmt.Println("vcenter.UserName: ", vcenter.UserName)
 	fmt.Println("vcenter.Password: ", vcenter.Password)
@@ -85,20 +85,23 @@ func getVmMap(vcenter draasv1alpha1.VCenterSpec) (*(map[string]*draasv1alpha1.VM
 		}
 
 		vmDB := draasv1alpha1.VMStatus{
-			VmId:      vm.Summary.Vm.Value,
-			Name:      vm.Name,
-			CPUs:      vm.Config.Hardware.NumCPU,
-			MemoryMB:  vm.Config.Hardware.MemoryMB,
-			GuestID:   vm.Config.GuestId,
-			IpAddress: ipAddress,
-			NumDisks:  len(vmdks),
-			Disks:     vmdks,
+			VmId:       vm.Summary.Vm.Value,
+			Name:       vm.Name,
+			CPUs:       vm.Config.Hardware.NumCPU,
+			MemoryMB:   vm.Config.Hardware.MemoryMB,
+			GuestID:    vm.Config.GuestId,
+			IpAddress:  ipAddress,
+			NumDisks:   len(vmdks),
+			Disks:      vmdks,
+			PowerState: string(vm.Runtime.PowerState),
 		}
 
-		vmMap[vm.Config.Uuid] = &vmDB
+		fmt.Println("vmDB.PowerState: ", vmDB.PowerState)
+
+		vmMap[vm.Config.Uuid] = vmDB
 	}
 
-	return &vmMap, nil
+	return vmMap, nil
 }
 
 func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails draasv1alpha1.StoragePolicySpec) (string, error) {
@@ -122,6 +125,38 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 	if err != nil {
 		fmt.Println("Error creating pbm client : ", err)
 		return "", err
+	}
+
+	if policyDetails.Name == "" {
+		policyDetails.Name = "PIO_Praapa"
+	}
+
+	if policyDetails.Description == "" {
+		policyDetails.Description = "PrimaryIO replication policy"
+	}
+
+	if policyDetails.ResourceType == "" {
+		policyDetails.ResourceType = "STORAGE"
+	}
+
+	if policyDetails.Namespace == "" {
+		policyDetails.Namespace = "primaryio"
+	}
+
+	if policyDetails.NamespaceId == "" {
+		policyDetails.NamespaceId = "primaryio@REPLICATION"
+	}
+
+	if policyDetails.Blocksize == 0 {
+		policyDetails.Blocksize = 4096
+	}
+
+	if policyDetails.Outsize == 0 {
+		policyDetails.Outsize = 1024
+	}
+
+	if policyDetails.Queuesize == 0 {
+		policyDetails.Queuesize = 65536
 	}
 
 	profile1 := pbmtypes.PbmCapabilityProfileCreateSpec{
@@ -233,6 +268,8 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 		return "", err
 	}
 	PolicyIdStr = id.UniqueId
+	fmt.Println("*******Policy creation succeds*****")
+
 	fmt.Println("Policy ID: ", id.UniqueId)
 	return PolicyIdStr, err
 }

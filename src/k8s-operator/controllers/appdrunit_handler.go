@@ -13,7 +13,8 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-func AttachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (string, error) {
+func AttachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (draasv1alpha1.VmPolicyStatus, error) {
+	var VmPolicyStatus draasv1alpha1.VmPolicyStatus
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -21,27 +22,27 @@ func AttachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (string, error) {
 		VCenterSpec{IP: vmPolicy.VcHostIp, UserName: vmPolicy.VcUsername, Password: vmPolicy.VcPassword})
 	if err != nil {
 		fmt.Println("Error connecting to vCenter : ", err)
-		return "", err
+		return VmPolicyStatus, err
 	}
 
 	//Get Policy details
 	policyCheck := draasv1alpha1.IsPolicyExistsSchema{
 		PolicyName: vmPolicy.PolicyName, VcHostIp: vmPolicy.VcHostIp,
 		VcUsername: vmPolicy.VcUsername, VcPassword: vmPolicy.VcPassword}
-	policyDetails, err := IsPolicyExists(policyCheck)
+	policyDetails, err := GetPolicy(policyCheck)
 	if err != nil {
 		fmt.Println("Unable to fetch policies from vCenter.")
-		return "", err
-	} else if !policyDetails.IsPolicyExists {
+		return VmPolicyStatus, err
+	} else if policyDetails.PolicyId == "" {
 		fmt.Println("Policy with given name not availabe at vCenter.")
 		err = errors.New("policy with given name not availabe at vCenter")
-		return "", err
+		return VmPolicyStatus, err
 	}
 
 	vmObj, err := GetVmObject(client, vmPolicy.VmUuid)
 	if err != nil {
 		fmt.Println("Error getting VM : ", err)
-		return "", err
+		return VmPolicyStatus, err
 	}
 
 	deviceList, err := vmObj.Device(ctx)
@@ -63,21 +64,24 @@ func AttachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (string, error) {
 
 			task, err := vmObj.Reconfigure(ctx, spec)
 			if err != nil {
-				return "", err
+				return VmPolicyStatus, err
 			}
 
 			err = task.Wait(ctx)
 			if err != nil {
-				fmt.Println("error changing disk policy : ", err)
-				return "", err
+				fmt.Println("error changing disk storage policy : ", err)
+				return VmPolicyStatus, err
 			}
 		}
 	}
 
-	return "", err
+	VmPolicyStatus.VmUuid = vmPolicy.VmUuid
+	VmPolicyStatus.PolicyAttach = true
+	fmt.Println("Storage policy attached successfully to VM : ", vmObj.Name())
+	return VmPolicyStatus, nil
 }
 
-func DetachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (string, error) {
+func DetachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -85,13 +89,13 @@ func DetachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (string, error) {
 		VCenterSpec{IP: vmPolicy.VcHostIp, UserName: vmPolicy.VcUsername, Password: vmPolicy.VcPassword})
 	if err != nil {
 		fmt.Println("Error connecting to vCenter : ", err)
-		return "", err
+		return err
 	}
 
 	vmObj, err := GetVmObject(client, vmPolicy.VmUuid)
 	if err != nil {
 		fmt.Println("Error getting VM : ", err)
-		return "", err
+		return err
 	}
 
 	deviceList, err := vmObj.Device(ctx)
@@ -110,21 +114,22 @@ func DetachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (string, error) {
 
 			task, err := vmObj.Reconfigure(ctx, spec)
 			if err != nil {
-				return "", err
+				return err
 			}
 
 			err = task.Wait(ctx)
 			if err != nil {
 				fmt.Println("error removing disk policy: ", err)
-				return "", err
+				return err
 			}
 		}
 	}
 
-	return "", err
+	fmt.Println("Storage policy detached successfully from VM : ", vmObj.Name())
+	return nil
 }
 
-func IsPolicyExists(policyCheck draasv1alpha1.IsPolicyExistsSchema) (draasv1alpha1.PolicyDetails, error) {
+func GetPolicy(policyCheck draasv1alpha1.IsPolicyExistsSchema) (draasv1alpha1.PolicyDetails, error) {
 	var response_body draasv1alpha1.PolicyDetails
 	vcenter := draasv1alpha1.VCenterSpec{
 		IP: policyCheck.VcHostIp, UserName: policyCheck.VcUsername, Password: policyCheck.VcPassword,
@@ -139,7 +144,6 @@ func IsPolicyExists(policyCheck draasv1alpha1.IsPolicyExistsSchema) (draasv1alph
 	for _, policy := range policyList {
 		if policy.PolicyName == policyCheck.PolicyName {
 			fmt.Println("Policy available in vCenter.")
-			response_body.IsPolicyExists = true
 			response_body.PolicyName = policy.PolicyName
 			response_body.PolicyId = policy.PolicyId
 			break
@@ -148,6 +152,8 @@ func IsPolicyExists(policyCheck draasv1alpha1.IsPolicyExistsSchema) (draasv1alph
 
 	return response_body, err
 }
+
+//IsPolicyExists should return true/false only
 
 func GetPolicyList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.PolicyDetails, error) {
 	var policyList []draasv1alpha1.PolicyDetails

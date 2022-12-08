@@ -34,15 +34,22 @@ type AppDRUnitSpec struct {
 	Description       string   `json:"description,omitempty"`
 	// Application will run on RemoteSite when trigger failover is set to true.
 	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
-	TriggerFailover bool `json:"triggerFailover,omitempty"`
+	TriggerFailover bool           `json:"triggerFailover,omitempty"`
+	VmPolicy        VmPolicySchema `json:"vmPolicy,omitempty"`
+}
+
+type VmPolicyStatus struct {
+	VmUuid       string `json:"vm_uuid,omitempty"`
+	PolicyAttach bool   `json:"policy_attach,omitempty"`
 }
 
 // AppDRUnitStatus defines the observed state of AppDRUnit
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	// FailoverStatus string
-	// VmdkUUIDMap map[string][string]
+	//FailoverStatus string
+	//VmdkUUIDMap map[string][string]
+	VmStoragePolicies VmPolicyStatus `json:"VmStoragePolicis,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -86,7 +93,6 @@ type IsPolicyExistsSchema struct {
 }
 
 type PolicyDetails struct {
-	IsPolicyExists bool   `json:"is_policy_exists,omitempty"`
-	PolicyName     string `json:"policy_name,omitempty"`
-	PolicyId       string `json:"policy_id,omitempty"`
+	PolicyName string `json:"policy_name,omitempty"`
+	PolicyId   string `json:"policy_id,omitempty"`
 }
