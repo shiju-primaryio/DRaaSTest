@@ -94,11 +94,16 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return reconcile.Result{}, nil
 	}
 
+	instance.Status.VmMap = make(map[string]*draasv1alpha1.VMStatus)
 	if instance.Spec.VMList != nil {
 		for _, vmSpec := range instance.Spec.VMList {
-			// powerOnOffVM(vmSpec.UUID, vmSpec.PowerOn)
+			// if err = powerOnOffVM(vmSpec.UUID, vmSpec.PowerOn); err != nil {
+			//  glog.Errorf("Error powering ON/OFF VM : %v", err)
+			// 	return reconcile.Result{}, err
+			// }
 			instance.Status.VmMap[vmSpec.UUID].IsProtected = vmSpec.IsPowerOn
 		}
+		return reconcile.Result{}, nil
 	}
 
 	//If Host field is set, then create Storage Policy if doesn't exist already
