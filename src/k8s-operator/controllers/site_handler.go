@@ -412,7 +412,7 @@ func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 	return vmdks, isProtected
 }
 
-func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vm draasv1alpha1.VMStatus, powerState bool) (string, error) {
+func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState bool) (string, error) {
 	var task *object.Task
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -423,7 +423,7 @@ func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vm draasv1alpha1.VMStatus,
 		return "", err
 	}
 
-	vmObj, err := GetVmObject(client, vm.VmUuid)
+	vmObj, err := GetVmObject(client, vMuuid)
 	if err != nil {
 		fmt.Println("Error getting VM : ", err)
 		return "", err

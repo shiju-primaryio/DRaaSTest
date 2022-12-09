@@ -13,23 +13,22 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-func AttachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (draasv1alpha1.VmPolicyStatus, error) {
+func AttachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alpha1.VmPolicyStatus, error) {
 	var VmPolicyStatus draasv1alpha1.VmPolicyStatus
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	PolicyName := "PrimaryIO_replication"
+	VmPolicyStatus.VmUuid = vmUuid
+	VmPolicyStatus.IsPolicyAttach = false
 
-	client, err := GetVCenterClient(draasv1alpha1.
-		VCenterSpec{IP: vmPolicy.VcHostIp, UserName: vmPolicy.VcUsername, Password: vmPolicy.VcPassword})
+	client, err := GetVCenterClient(vcenter)
 	if err != nil {
 		fmt.Println("Error connecting to vCenter : ", err)
 		return VmPolicyStatus, err
 	}
 
 	//Get Policy details
-	policyCheck := draasv1alpha1.IsPolicyExistsSchema{
-		PolicyName: vmPolicy.PolicyName, VcHostIp: vmPolicy.VcHostIp,
-		VcUsername: vmPolicy.VcUsername, VcPassword: vmPolicy.VcPassword}
-	policyDetails, err := GetPolicy(policyCheck)
+	policyDetails, err := GetPolicy(PolicyName, vcenter)
 	if err != nil {
 		fmt.Println("Unable to fetch policies from vCenter.")
 		return VmPolicyStatus, err
@@ -39,7 +38,7 @@ func AttachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (draasv1alpha1.VmPolicy
 		return VmPolicyStatus, err
 	}
 
-	vmObj, err := GetVmObject(client, vmPolicy.VmUuid)
+	vmObj, err := GetVmObject(client, vmUuid)
 	if err != nil {
 		fmt.Println("Error getting VM : ", err)
 		return VmPolicyStatus, err
@@ -75,27 +74,32 @@ func AttachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) (draasv1alpha1.VmPolicy
 		}
 	}
 
-	VmPolicyStatus.VmUuid = vmPolicy.VmUuid
-	VmPolicyStatus.PolicyAttach = true
+	VmPolicyStatus.VmUuid = vmUuid
+	VmPolicyStatus.IsPolicyAttach = true
 	fmt.Println("Storage policy attached successfully to VM : ", vmObj.Name())
 	return VmPolicyStatus, nil
 }
 
-func DetachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) error {
+func DetachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alpha1.VmPolicyStatus, error) {
+	var VmPolicyStatus draasv1alpha1.VmPolicyStatus
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client, err := GetVCenterClient(draasv1alpha1.
-		VCenterSpec{IP: vmPolicy.VcHostIp, UserName: vmPolicy.VcUsername, Password: vmPolicy.VcPassword})
+	//PolicyName := "PrimaryIO_replication"
+	VmPolicyStatus.VmUuid = vmUuid
+	VmPolicyStatus.IsPolicyAttach = true
+
+	client, err := GetVCenterClient(vcenter)
 	if err != nil {
 		fmt.Println("Error connecting to vCenter : ", err)
-		return err
+		return VmPolicyStatus, err
 	}
 
-	vmObj, err := GetVmObject(client, vmPolicy.VmUuid)
+	vmObj, err := GetVmObject(client, vmUuid)
 	if err != nil {
 		fmt.Println("Error getting VM : ", err)
-		return err
+		return VmPolicyStatus, err
 	}
 
 	deviceList, err := vmObj.Device(ctx)
@@ -114,26 +118,25 @@ func DetachPolicy(vmPolicy draasv1alpha1.VmPolicySchema) error {
 
 			task, err := vmObj.Reconfigure(ctx, spec)
 			if err != nil {
-				return err
+				return VmPolicyStatus, err
 			}
 
 			err = task.Wait(ctx)
 			if err != nil {
 				fmt.Println("error removing disk policy: ", err)
-				return err
+				return VmPolicyStatus, err
 			}
 		}
 	}
 
+	VmPolicyStatus.VmUuid = vmUuid
+	VmPolicyStatus.IsPolicyAttach = false
 	fmt.Println("Storage policy detached successfully from VM : ", vmObj.Name())
-	return nil
+	return VmPolicyStatus, nil
 }
 
-func GetPolicy(policyCheck draasv1alpha1.IsPolicyExistsSchema) (draasv1alpha1.PolicyDetails, error) {
+func GetPolicy(PolicyName string, vcenter draasv1alpha1.VCenterSpec) (draasv1alpha1.PolicyDetails, error) {
 	var response_body draasv1alpha1.PolicyDetails
-	vcenter := draasv1alpha1.VCenterSpec{
-		IP: policyCheck.VcHostIp, UserName: policyCheck.VcUsername, Password: policyCheck.VcPassword,
-	}
 
 	policyList, err := GetPolicyList(vcenter)
 	if err != nil {
@@ -142,7 +145,7 @@ func GetPolicy(policyCheck draasv1alpha1.IsPolicyExistsSchema) (draasv1alpha1.Po
 	}
 
 	for _, policy := range policyList {
-		if policy.PolicyName == policyCheck.PolicyName {
+		if policy.PolicyName == PolicyName {
 			fmt.Println("Policy available in vCenter.")
 			response_body.PolicyName = policy.PolicyName
 			response_body.PolicyId = policy.PolicyId

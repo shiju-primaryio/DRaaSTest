@@ -34,14 +34,8 @@ type SiteSpec struct {
 	PeerSite      string           `json:"peerSite,omitempty"`
 	VCenter       VCenterSpec      `json:"vCenter,omitempty"`
 	VMList        []VMSpec         `json:"vmList,omitempty"`
-	VMPowerSchema VMPowerRequst    `json:"vMPowerRequst,omitempty"`
 	// StoragePolicy should be deleted on deletion of Site
 	StoragePolicy StoragePolicySpec `json:"storagePolicySpec,omitempty"`
-}
-
-type VMPowerRequst struct {
-	VmUuid  string `json:"vmUuid,omitempty"`
-	PowerOn bool   `json:"PowerOn,omitempty"`
 }
 
 // VCenterSpec contains vCenter related connection info
@@ -83,6 +77,7 @@ type SiteStatus struct {
 	SiteState SiteState  `json:"state,omitempty"`
 	VmList    []VMStatus `json:"vmList,omitempty"`
 	PolicyId  string     `json:"policyId,omitempty"`
+	TempId    int        `json:"tmpId,omitempty"`
 	Error     ErrorField `json:"error,omitempty"`
 }
 

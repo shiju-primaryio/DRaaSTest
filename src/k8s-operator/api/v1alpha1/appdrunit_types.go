@@ -28,28 +28,43 @@ type AppDRUnitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Site              string   `json:"site,omitempty"`
-	RemoteSite        string   `json:"remoteSite,omitempty"`
-	ProtectVMUUIDList []string `json:"protectvmuuidList,omitempty"`
-	Description       string   `json:"description,omitempty"`
+	Site              string            `json:"site,omitempty"`
+	RemoteSite        string            `json:"remoteSite,omitempty"`
+	ProtectVMUUIDList []VmPolicyRequest `json:"protectvmuuidList,omitempty"`
+	Description       string            `json:"description,omitempty"`
+	VCenter           VCenterSpec       `json:"vCenter,omitempty"`
 	// Application will run on RemoteSite when trigger failover is set to true.
 	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
-	TriggerFailover bool           `json:"triggerFailover,omitempty"`
-	VmPolicy        VmPolicySchema `json:"vmPolicy,omitempty"`
+	TriggerFailover bool `json:"triggerFailover,omitempty"`
+}
+
+/*
+// VCenterSpec contains vCenter related connection info
+
+	type VCenterSpec struct {
+		IP string `json:"ip,omitempty"`
+		// TODO: Change below fields to k8s secret
+		UserName string `json:"username,omitempty"`
+		Password string `json:"password,omitempty"`
+	}
+*/
+type VmPolicyRequest struct {
+	VmUuid         string `json:"vmUuid,omitempty"`
+	IsPolicyAttach bool   `json:"isPolicyAttach,omitempty"`
 }
 
 type VmPolicyStatus struct {
-	VmUuid       string `json:"vm_uuid,omitempty"`
-	PolicyAttach bool   `json:"policy_attach,omitempty"`
+	VmUuid         string `json:"vmUuid,omitempty"`
+	IsPolicyAttach bool   `json:"isPolicyAttach,omitempty"`
 }
 
 // AppDRUnitStatus defines the observed state of AppDRUnit
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	//FailoverStatus string
+	FailoverStatus string `json:"failoverStatus,omitempty"`
 	//VmdkUUIDMap map[string][string]
-	VmStoragePolicies VmPolicyStatus `json:"VmStoragePolicis,omitempty"`
+	VmStoragePolicyStatus []VmPolicyStatus `json:"vmStoragePolicyStatus,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -128,21 +128,16 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	instance.Status.VmList = vmList
-	var vmPowerReq draasv1alpha1.VMPowerRequst
-	if instance.Spec.VMPowerSchema != vmPowerReq {
-		fmt.Println("Changing power state.......")
-		for _, vm := range vmList {
-			if vm.VmUuid == instance.Spec.VMPowerSchema.VmUuid {
-				var taskName string
-				if instance.Spec.VMPowerSchema.PowerOn {
-					taskName, err = VmPowerChange(instance.Spec.VCenter, vm, true)
-				} else {
-					taskName, err = VmPowerChange(instance.Spec.VCenter, vm, false)
-				}
-				fmt.Println("VM task name :", taskName)
-				if err != nil {
-					reqLogger.Error(err, "Failed to change VM power state.")
-				}
+
+	if instance.Spec.VMList != nil {
+		for _, vm := range instance.Spec.VMList {
+			var taskName string
+			fmt.Println("Changing power state of Vm: ", vm.UUID)
+			taskName, err = VmPowerChange(instance.Spec.VCenter, vm.UUID, vm.IsPowerOn)
+
+			fmt.Println("VM task name :", taskName)
+			if err != nil {
+				reqLogger.Error(err, "Failed to change VM power state.")
 			}
 		}
 	}

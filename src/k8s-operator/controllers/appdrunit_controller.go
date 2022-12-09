@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -91,13 +92,23 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, nil
 	}
 
-	// Fetch VMs from VCenter on Site Creation only
-	vmPolicyStatus, err := AttachPolicy(instance.Spec.VmPolicy)
-	if err != nil {
-		reqLogger.Error(err, "Failed to fetch VM list")
-	}
+	if instance.Spec.ProtectVMUUIDList != nil {
+		var vmPolicyStatus draasv1alpha1.VmPolicyStatus
+		for _, vm := range instance.Spec.ProtectVMUUIDList {
+			fmt.Println("Changing policy state for Vm: ", vm.VmUuid)
 
-	instance.Status.VmStoragePolicies = vmPolicyStatus
+			if vm.IsPolicyAttach {
+				vmPolicyStatus, err = AttachPolicy(instance.Spec.VCenter, vm.VmUuid)
+			} else {
+				vmPolicyStatus, err = DetachPolicy(instance.Spec.VCenter, vm.VmUuid)
+			}
+			if err != nil {
+				reqLogger.Error(err, "Failed to change state of VM.")
+			}
+
+			instance.Status.VmStoragePolicyStatus = append(instance.Status.VmStoragePolicyStatus, vmPolicyStatus)
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
