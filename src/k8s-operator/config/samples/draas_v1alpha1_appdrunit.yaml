@@ -10,9 +10,9 @@ metadata:
   name: appdrunit-sample
 spec:
   # TODO(user): Add fields here
-   vCenter:
-    VmUuid: "422aebb4-04f0-a1ed-b286-a94a976bf829"
-    PolicyName: "PIO_PraapaT"
-    VcHostIp: 10.20.3.11
-    VcUsername: Administrator@primaryio.cloud
-    VcPassword: PrimaryIO@123
+   vmPolicy:
+    vmUuid: "422a9256-253f-77fd-d963-9009c4efbb7c"
+    policyName: "PIO_PraapaT"
+    vcHostIp: 10.20.3.11
+    vcUserName: Administrator@primaryio.cloud
+    vcPassword: PrimaryIO@123

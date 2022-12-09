@@ -34,8 +34,14 @@ type SiteSpec struct {
 	PeerSite      string           `json:"peerSite,omitempty"`
 	VCenter       VCenterSpec      `json:"vCenter,omitempty"`
 	VMList        []VMSpec         `json:"vmList,omitempty"`
+	VMPowerSchema VMPowerRequst    `json:"vMPowerRequst,omitempty"`
 	// StoragePolicy should be deleted on deletion of Site
 	StoragePolicy StoragePolicySpec `json:"storagePolicySpec,omitempty"`
+}
+
+type VMPowerRequst struct {
+	VmUuid  string `json:"vmUuid, omitempty"`
+	PowerOn bool   `json:"PowerOn, omitempty"`
 }
 
 // VCenterSpec contains vCenter related connection info
@@ -91,6 +97,7 @@ const (
 type VMStatus struct {
 	VmId        string   `json:"vm_id,omitempty"`
 	Name        string   `json:"name,omitempty"`
+	VmUuid      string   `json:"vm_uuid"`
 	CPUs        int32    `json:"cpus,omitempty"`
 	MemoryMB    int32    `json:"memory_mb,omitempty"`
 	GuestID     string   `json:"guest_id,omitempty"`
@@ -104,14 +111,14 @@ type VMStatus struct {
 
 // Disk configuration
 type Disk struct {
-	Name            string   `json:"file_name"`
-	VmId            string   `json:"vm_id,omitempty"`
-	Datastore       string   `json:"datastore,omitempty"`
-	ThinProvisioned bool     `json:"thin_provisioned"`
-	SizeMB          int64    `json:"size_mb,omitempty"`
-	UnitNumber      int32    `json:"unit_number"`
-	Label           string   `json:"label,omitempty"`
-	IofilterName    []string `json:"iofilter_name,omitempty"`
+	Name            string `json:"file_name"`
+	VmId            string `json:"vm_id,omitempty"`
+	Datastore       string `json:"datastore,omitempty"`
+	ThinProvisioned bool   `json:"thin_provisioned"`
+	SizeMB          int64  `json:"size_mb,omitempty"`
+	UnitNumber      int32  `json:"unit_number"`
+	Label           string `json:"label,omitempty"`
+	IofilterName    string `json:"iofilter_name,omitempty"`
 }
 
 type ErrorField struct {

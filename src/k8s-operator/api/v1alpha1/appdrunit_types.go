@@ -78,21 +78,21 @@ func init() {
 }
 
 type VmPolicySchema struct {
-	VmUuid     string `json:"vm_uuid,omitempty"`
-	PolicyName string `json:"policy_name,omitempty"`
-	VcHostIp   string `json:"vc_host_ip,omitempty"`
-	VcUsername string `json:"vc_user_name,omitempty"`
-	VcPassword string `json:"vc_password,omitempty"`
+	VmUuid     string `json:"vmUuid,omitempty"`
+	PolicyName string `json:"policyName,omitempty"`
+	VcHostIp   string `json:"vcHostIp,omitempty"`
+	VcUsername string `json:"vcUserName,omitempty"`
+	VcPassword string `json:"vcPassword,omitempty"`
 }
 
 type IsPolicyExistsSchema struct {
-	PolicyName string `json:"policy_name,omitempty"`
-	VcHostIp   string `json:"vc_host_ip,omitempty"`
-	VcUsername string `json:"vc_user_name,omitempty"`
-	VcPassword string `json:"vc_password,omitempty"`
+	PolicyName string `json:"policyName,omitempty"`
+	VcHostIp   string `json:"vcHostIp,omitempty"`
+	VcUsername string `json:"vcUserName,omitempty"`
+	VcPassword string `json:"vcPassword,omitempty"`
 }
 
 type PolicyDetails struct {
-	PolicyName string `json:"policy_name,omitempty"`
-	PolicyId   string `json:"policy_id,omitempty"`
+	PolicyName string `json:"policyName,omitempty"`
+	PolicyId   string `json:"policyId,omitempty"`
 }

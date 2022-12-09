@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
 
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -160,7 +162,7 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, err
 	}
 
 	for _, vm := range vmt {
-		vmdks := GetVmdks(vm)
+		vmdks, isProtected := GetVmdks(vm)
 		var ipAddress []string
 		for _, nic := range vm.Guest.Net {
 			// available in api v5
@@ -176,15 +178,17 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, err
 		}
 
 		vmDB := draasv1alpha1.VMStatus{
-			VmId:       vm.Summary.Vm.Value,
-			Name:       vm.Name,
-			CPUs:       vm.Config.Hardware.NumCPU,
-			MemoryMB:   vm.Config.Hardware.MemoryMB,
-			GuestID:    vm.Config.GuestId,
-			IpAddress:  ipAddress,
-			NumDisks:   len(vmdks),
-			Disks:      vmdks,
-			PowerState: string(vm.Runtime.PowerState),
+			VmId:        vm.Summary.Vm.Value,
+			Name:        vm.Name,
+			VmUuid:      vm.Config.Uuid,
+			CPUs:        vm.Config.Hardware.NumCPU,
+			MemoryMB:    vm.Config.Hardware.MemoryMB,
+			GuestID:     vm.Config.GuestId,
+			IpAddress:   ipAddress,
+			NumDisks:    len(vmdks),
+			Disks:       vmdks,
+			PowerState:  string(vm.Runtime.PowerState),
+			IsProtected: isProtected,
 		}
 
 		fmt.Println("vmDB.PowerState: ", vmDB.PowerState)
@@ -366,8 +370,9 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 	return PolicyIdStr, err
 }
 
-func GetVmdks(vm mo.VirtualMachine) []draasv1alpha1.Disk {
+func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 	var vmdks []draasv1alpha1.Disk
+	var isProtected bool
 	labelPattern := regexp.MustCompile(`/[\w*-]*.vmdk$`)
 
 	for _, device := range vm.Config.Hardware.Device {
@@ -381,7 +386,14 @@ func GetVmdks(vm mo.VirtualMachine) []draasv1alpha1.Disk {
 			thinProvisioned := *(disk.Backing.(*types.VirtualDiskFlatVer2BackingInfo).ThinProvisioned)
 			unitNumber := disk.UnitNumber
 			label := labelPattern.FindString(fileName)[1:]
-			iofilters := disk.Iofilter
+			var iofilter string
+			//iofilters := disk.Iofilter
+			for _, iof := range disk.Iofilter {
+				if strings.Contains(iof, "primaryio") {
+					iofilter = iof
+					isProtected = true
+				}
+			}
 
 			vmdkDB := draasv1alpha1.Disk{
 				Name:            fileName,
@@ -391,11 +403,51 @@ func GetVmdks(vm mo.VirtualMachine) []draasv1alpha1.Disk {
 				UnitNumber:      *unitNumber,
 				Label:           label,
 				VmId:            vm.Summary.Vm.Value,
-				IofilterName:    iofilters,
+				IofilterName:    iofilter,
 			}
 			vmdks = append(vmdks, vmdkDB)
 		}
 	}
 
-	return vmdks
+	return vmdks, isProtected
+}
+
+func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vm draasv1alpha1.VMStatus, powerState bool) (string, error) {
+	var task *object.Task
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	client, err := GetVCenterClient(vcenter)
+	if err != nil {
+		fmt.Println("Error connecting to vCenter : ", err)
+		return "", err
+	}
+
+	vmObj, err := GetVmObject(client, vm.VmUuid)
+	if err != nil {
+		fmt.Println("Error getting VM : ", err)
+		return "", err
+	}
+
+	if powerState {
+		fmt.Println("Powering on VM...")
+		task, err = vmObj.PowerOn(ctx)
+	} else {
+		fmt.Println("Powering off VM...")
+		task, err = vmObj.PowerOff(ctx)
+	}
+
+	if err != nil {
+		fmt.Printf("Failed to change power state of VM.")
+		return "", err
+	}
+
+	info, err := task.WaitForResult(ctx, nil)
+	if err != nil {
+		fmt.Printf("VM change power state process failed: %v", err)
+		return "", err
+	}
+
+	fmt.Println("Power change task: ", info.State)
+	return info.Name, err
 }
