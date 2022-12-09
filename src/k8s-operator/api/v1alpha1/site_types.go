@@ -40,8 +40,8 @@ type SiteSpec struct {
 }
 
 type VMPowerRequst struct {
-	VmUuid  string `json:"vmUuid, omitempty"`
-	PowerOn bool   `json:"PowerOn, omitempty"`
+	VmUuid  string `json:"vmUuid,omitempty"`
+	PowerOn bool   `json:"PowerOn,omitempty"`
 }
 
 // VCenterSpec contains vCenter related connection info
