@@ -9,10 +9,12 @@ metadata:
     app.kubernetes.io/created-by: k8s-operator
   name: appdrunit-sample
 spec:
-  # TODO(user): Add fields here
-   vmPolicy:
-    vmUuid: "422a9256-253f-77fd-d963-9009c4efbb7c"
-    policyName: "PIO_PraapaT"
-    vcHostIp: 10.20.3.11
-    vcUserName: Administrator@primaryio.cloud
-    vcPassword: PrimaryIO@123
+  vCenter:
+    ip: 10.20.3.11
+    username: Administrator@primaryio.cloud
+    password: PrimaryIO@123
+  protectvmuuidList:
+  - vmUuid: "422a9256-253f-77fd-d963-9009c4efbb7c"
+    isPolicyAttach: true
+  - vmUuid: "422a9256-253f-77fd-d963-9009c4efbb7c"
+    isPolicyAttach: true
