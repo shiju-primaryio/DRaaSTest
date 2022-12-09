@@ -120,15 +120,15 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		instance.Status.PolicyId = policyId
 	}
 
-	fmt.Println("get vmMap.......")
+	fmt.Println("get vmList.......")
 
 	// Fetch VMs from VCenter on Site Creation only
-	vmMap, err := getVmMap(instance.Spec.VCenter)
+	vmList, err := getVmList(instance.Spec.VCenter)
 	if err != nil {
 		reqLogger.Error(err, "Failed to fetch VM list")
 	}
 
-	instance.Status.VmMap = vmMap
+	instance.Status.VmList = vmList
 
 	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 		glog.Errorf("Failed to update Site status : %v", err)

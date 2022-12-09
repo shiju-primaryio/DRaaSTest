@@ -11,7 +11,7 @@ metadata:
   name: site-sample
 spec:
   isPrimarySite: true
-  # We can skip sending info of remote site at the time of site creation. remoteSite will be part of PATCH call
+  # We can skip sending info of peer site at the time of site creation. peerSite will be part of PATCH call
   peerSite: ""
   vCenter:
     ip: 10.20.3.11

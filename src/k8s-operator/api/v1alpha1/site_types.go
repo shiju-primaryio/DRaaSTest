@@ -74,10 +74,10 @@ type SiteStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	SiteState SiteState           `json:"state,omitempty"`
-	VmMap     map[string]VMStatus `json:"vmMap,omitempty"`
-	PolicyId  string              `json:"policyId,omitempty"`
-	Error     ErrorField          `json:"error,omitempty"`
+	SiteState SiteState  `json:"state,omitempty"`
+	VmList    []VMStatus `json:"vmList,omitempty"`
+	PolicyId  string     `json:"policyId,omitempty"`
+	Error     ErrorField `json:"error,omitempty"`
 }
 
 type SiteState string
