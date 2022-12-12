@@ -192,7 +192,7 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, err
 			IsProtected: isProtected,
 		}
 
-		fmt.Println("vmDB.PowerState: ", vmDB.PowerState)
+		//fmt.Println("vmDB.PowerState: ", vmDB.PowerState)
 		vmList = append(vmList, vmDB)
 	}
 
@@ -228,7 +228,7 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 	if policyinfo.PolicyId != "" {
 		fmt.Println("Storage policy 'PrimaryIO_replication' already exists.")
 		err = errors.New("storsge polivy 'PrimaryIO_replication' already exists")
-		return "", err
+		return policyinfo.PolicyId, err
 	}
 
 	pbmSi, err := pbm.NewClient(ctx, c.Client)
@@ -410,7 +410,7 @@ func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 				}
 			}
 
-			fmt.Println("--- filterName: ", filterName)
+			//fmt.Println("--- filterName: ", filterName)
 
 			vmdkDB := draasv1alpha1.Disk{
 				Name:            fileName,
@@ -493,6 +493,6 @@ func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState 
 		return "", err
 	}
 
-	fmt.Println("Power change task: ", info.State)
+	//fmt.Println("Power change task: ", info.State)
 	return info.Name, err
 }

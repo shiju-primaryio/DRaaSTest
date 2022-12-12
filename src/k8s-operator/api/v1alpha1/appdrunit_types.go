@@ -29,10 +29,10 @@ type AppDRUnitSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	Site              string            `json:"site,omitempty"`
-	VCenter           VCenterSpec       `json:"vCenter,omitempty"`
 	RemoteSite        string            `json:"remoteSite,omitempty"`
 	ProtectVMUUIDList []VmPolicyRequest `json:"protectvmuuidList,omitempty"`
 	Description       string            `json:"description,omitempty"`
+	VCenter           VCenterSpec       `json:"vCenter,omitempty"`
 	// Application will run on RemoteSite when trigger failover is set to true.
 	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
 	TriggerFailover bool `json:"triggerFailover,omitempty"`
@@ -62,6 +62,9 @@ type VmPolicyStatus struct {
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Site       string `json:"site,omitempty"`
+	RemoteSite string `json:"remoteSite,omitempty"`
+
 	FailoverStatus string `json:"failoverStatus,omitempty"`
 	//VmdkUUIDMap map[string][string]
 	VmStoragePolicyStatus []VmPolicyStatus `json:"vmStoragePolicyStatus,omitempty"`

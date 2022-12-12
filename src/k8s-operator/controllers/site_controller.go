@@ -110,9 +110,8 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	var policyId string
 	fmt.Println("instance.Status.PolicyId: ", instance.Status.PolicyId)
 	//If Host field is set, then create Storage Policy if doesn't exist already
-	//if instance.Spec.StoragePolicy.Host != "" && instance.Status.PolicyId != "" {
-	if instance.Spec.StoragePolicy.Host != "" {
-		fmt.Println("Creating storage policy.......")
+	if instance.Spec.StoragePolicy.Host != "" && instance.Status.PolicyId == "" {
+		fmt.Println("Creating Storage Policy.......")
 		policyId, err = CreateStoragePolicyForSite(instance.Spec.VCenter, instance.Spec.StoragePolicy)
 		if err != nil {
 			//reqLogger.Error(err, "Failed to create policy.")
@@ -120,11 +119,14 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 
 		instance.Status.PolicyId = policyId
-	}
-	//Todo: test
-	instance.Status.PolicyId = "Rahulk_test"
 
-	fmt.Println("get vmList.......")
+		//Reset the VMList in Spec
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			glog.Errorf("Failed to update Site status : %v", err)
+		}
+	}
+
+	//fmt.Println("get vmList.......")
 	// Fetch VMs from VCenter on Site Creation only
 	vmList, err := getVmList(instance.Spec.VCenter)
 	if err != nil {
@@ -151,6 +153,13 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 		fmt.Println("Setting VMList to Nil .......")
 		instance.Spec.VMList = nil
+
+		//Reset the VMList in Spec
+		if err = r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update", "Site", instance.Name)
+			return reconcile.Result{}, err
+		}
+
 	}
 
 	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
