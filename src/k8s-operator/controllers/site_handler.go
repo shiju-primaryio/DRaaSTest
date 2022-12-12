@@ -225,7 +225,7 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 		return "", err
 	}
 
-	if policyinfo.PolicyId == "" {
+	if policyinfo.PolicyId != "" {
 		fmt.Println("Storage policy 'PrimaryIO_replication' already exists.")
 		err = errors.New("storsge polivy 'PrimaryIO_replication' already exists")
 		return "", err
@@ -238,7 +238,7 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 	}
 
 	if policyDetails.Name == "" {
-		policyDetails.Name = "PIO_Praapa"
+		policyDetails.Name = PolicyName
 	}
 
 	if policyDetails.Description == "" {

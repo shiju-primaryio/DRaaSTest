@@ -94,6 +94,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if instance.Spec.ProtectVMUUIDList != nil {
 		var vmPolicyStatus draasv1alpha1.VmPolicyStatus
+		instance.Status.VmStoragePolicyStatus = nil
 		for _, vm := range instance.Spec.ProtectVMUUIDList {
 			fmt.Println("Changing policy state for Vm: ", vm.VmUuid)
 

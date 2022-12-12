@@ -15,6 +15,5 @@ spec:
     password: PrimaryIO@123
   protectvmuuidList:
   - vmUuid: "422a9256-253f-77fd-d963-9009c4efbb7c"
-    isPolicyAttach: true
-  - vmUuid: "422ab122-aee8-cde6-3fba-47b87b8c9b76"
-    isPolicyAttach: true
+    isPolicyAttach: false
+ 
