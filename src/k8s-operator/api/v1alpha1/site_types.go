@@ -97,10 +97,10 @@ type VMStatus struct {
 	MemoryMB    int32    `json:"memory_mb,omitempty"`
 	GuestID     string   `json:"guest_id,omitempty"`
 	Disks       []Disk   `json:"disks,omitempty"`
-	IsProtected bool     `json:"is_protected,omitempty"`
+	IsProtected bool     `json:"is_protected"`
 	IpAddress   []string `json:"ip_address,omitempty"`
 	NumDisks    int      `json:"num_disks,omitempty"`
-	IsPowerOn   bool     `json:"isPowerOn,omitempty"`
+	IsPowerOn   bool     `json:"isPowerOn"`
 	PowerState  string   `json:"power_state,omitempty"`
 }
 
@@ -113,7 +113,7 @@ type Disk struct {
 	SizeMB          int64  `json:"size_mb,omitempty"`
 	UnitNumber      int32  `json:"unit_number"`
 	Label           string `json:"label,omitempty"`
-	IofilterName    string `json:"iofilter_name,omitempty"`
+	IofilterName    string `json:"iofilter_name"`
 }
 
 type ErrorField struct {

@@ -107,6 +107,8 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 
 			instance.Status.VmStoragePolicyStatus = append(instance.Status.VmStoragePolicyStatus, vmPolicyStatus)
+			fmt.Println("Setting ProtectVMUUIDList to Nil .......")
+			instance.Spec.ProtectVMUUIDList = nil
 		}
 	}
 

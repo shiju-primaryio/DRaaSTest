@@ -20,7 +20,7 @@ spec:
   # vmList will be used to send list of VMs to power it ON/OFF. Not needed at the time of Site creation. vmList will be part of PATCH call
   vmList:
   - uuid: "422a9256-253f-77fd-d963-9009c4efbb7c"
-    isPowerOn: false
+    isPowerOn: true
   storagePolicySpec:
     host: "10.21.1.9"
     port: "7100"

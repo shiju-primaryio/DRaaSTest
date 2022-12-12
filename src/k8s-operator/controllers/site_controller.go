@@ -119,6 +119,8 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 		instance.Status.PolicyId = policyId
 	}
+	//Todo: test
+	instance.Status.PolicyId = "Rahulk_test"
 
 	fmt.Println("get vmList.......")
 	// Fetch VMs from VCenter on Site Creation only
@@ -137,9 +139,16 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 			fmt.Println("VM task name :", taskName)
 			if err != nil {
-				reqLogger.Error(err, "Failed to change VM power state.")
+				fmt.Println("Failed to change power state of VM.....")
+
+				//reqLogger.Error(err, "Failed to change VM power state.")
+				instance.Status.Error.ErrorMessage = "Failed to change VM power state."
+			} else {
+				instance.Status.Error.ErrorMessage = ""
 			}
 		}
+		fmt.Println("Setting VMList to Nil .......")
+		instance.Spec.VMList = nil
 	}
 
 	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {

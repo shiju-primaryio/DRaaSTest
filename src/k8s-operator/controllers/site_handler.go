@@ -392,6 +392,7 @@ func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 				if strings.Contains(iof, "primaryio") {
 					iofilter = iof
 					isProtected = true
+					break
 				}
 			}
 
@@ -413,33 +414,61 @@ func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 }
 
 func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState bool) (string, error) {
-	var task *object.Task
+	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
+	u, err := url.Parse(urlString)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client, err := GetVCenterClient(vcenter)
+	// Connect and log in to ESX or vCenter
+	c, err1 := govmomi.NewClient(ctx, u, true)
+	if err1 != nil {
+		fmt.Println("Error connecting to ESX : ", err1)
+		return "", err1
+	}
+
+	f := find.NewFinder(c.Client, true)
+	// Find one and only datacenter
+	dc, err := f.DefaultDatacenter(ctx)
 	if err != nil {
-		fmt.Println("Error connecting to vCenter : ", err)
+		fmt.Println("Error getting datacenter : ", err)
 		return "", err
 	}
 
-	vmObj, err := GetVmObject(client, vMuuid)
+	pc := property.DefaultCollector(c.Client)
+	s := object.NewSearchIndex(c.Client)
+	svm, err := s.FindByUuid(context.Background(), dc, vMuuid, true, nil)
 	if err != nil {
-		fmt.Println("Error getting VM : ", err)
+		fmt.Println("Error retrieving VM Object : ", err)
 		return "", err
 	}
 
-	if powerState {
+	fmt.Println("UUID after get :", svm.Reference())
+	var vm mo.VirtualMachine
+	err = pc.RetrieveOne(ctx, svm.Reference(), nil, &vm)
+	if err != nil {
+		fmt.Println("Error retrieving VM after VM: ", err)
+		return "", err
+	}
+	var task *object.Task
+
+	vmObj := object.NewVirtualMachine(c.Client, vm.Reference())
+
+	CurrentPowerState, _ := vmObj.PowerState(ctx)
+
+	if (powerState) && (CurrentPowerState == types.VirtualMachinePowerStatePoweredOff) {
+		fmt.Println("Powering on VM...")
+		task, err = vmObj.PowerOn(ctx)
+	} else if (!powerState) && (CurrentPowerState == types.VirtualMachinePowerStatePoweredOn) {
 		fmt.Println("Powering on VM...")
 		task, err = vmObj.PowerOn(ctx)
 	} else {
-		fmt.Println("Powering off VM...")
-		task, err = vmObj.PowerOff(ctx)
+		fmt.Println("Already in the desired power state. Not doing anything.")
+		return "", nil
 	}
 
 	if err != nil {
 		fmt.Printf("Failed to change power state of VM.")
-		return "", err
+		//return "", err
 	}
 
 	info, err := task.WaitForResult(ctx, nil)
