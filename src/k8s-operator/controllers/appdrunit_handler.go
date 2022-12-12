@@ -21,10 +21,31 @@ func AttachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alph
 	VmPolicyStatus.VmUuid = vmUuid
 	VmPolicyStatus.IsPolicyAttach = false
 
-	client, err := GetVCenterClient(vcenter)
+	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
+	u, err := url.Parse(urlString)
+
+	// Connect and log in to ESX or vCenter
+	c, err := govmomi.NewClient(ctx, u, true)
 	if err != nil {
-		fmt.Println("Error connecting to vCenter : ", err)
+		fmt.Println("Error connecting to ESX : ", err)
 		return VmPolicyStatus, err
+	}
+
+	//Verify policy already attached to VM
+	vmList, err := getVmList(vcenter)
+	if err != nil {
+		fmt.Println("Failed to fetch VM list", err)
+		return VmPolicyStatus, err
+	}
+
+	for _, vm := range vmList {
+		if vm.VmUuid == vmUuid {
+			if vm.IsProtected {
+				fmt.Println("Policy already attached to VM.")
+				err = errors.New("policy already attached to VM")
+				return VmPolicyStatus, err
+			}
+		}
 	}
 
 	//Get Policy details
@@ -38,13 +59,18 @@ func AttachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alph
 		return VmPolicyStatus, err
 	}
 
-	vmObj, err := GetVmObject(client, vmUuid)
+	vmObj, err := GetVmObject(c.Client, vmUuid)
 	if err != nil {
 		fmt.Println("Error getting VM : ", err)
 		return VmPolicyStatus, err
 	}
 
 	deviceList, err := vmObj.Device(ctx)
+	if err != nil {
+		fmt.Println("Error failed to fetch VM device : ", err)
+		return VmPolicyStatus, err
+	}
+
 	for _, device := range deviceList {
 		switch disk := device.(type) {
 		case *types.VirtualDisk:
@@ -82,7 +108,6 @@ func AttachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alph
 
 func DetachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alpha1.VmPolicyStatus, error) {
 	var VmPolicyStatus draasv1alpha1.VmPolicyStatus
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -90,13 +115,34 @@ func DetachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alph
 	VmPolicyStatus.VmUuid = vmUuid
 	VmPolicyStatus.IsPolicyAttach = true
 
-	client, err := GetVCenterClient(vcenter)
+	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
+	u, err := url.Parse(urlString)
+
+	// Connect and log in to ESX or vCenter
+	c, err := govmomi.NewClient(ctx, u, true)
 	if err != nil {
-		fmt.Println("Error connecting to vCenter : ", err)
+		fmt.Println("Error connecting to ESX : ", err)
 		return VmPolicyStatus, err
 	}
 
-	vmObj, err := GetVmObject(client, vmUuid)
+	//Verify policy attached to VM
+	vmList, err := getVmList(vcenter)
+	if err != nil {
+		fmt.Println("Failed to fetch VM list", err)
+		return VmPolicyStatus, err
+	}
+
+	for _, vm := range vmList {
+		if vm.VmUuid == vmUuid {
+			if !vm.IsProtected {
+				fmt.Println("Policy not attached to VM.")
+				err = errors.New("policy not attached to VM")
+				return VmPolicyStatus, err
+			}
+		}
+	}
+
+	vmObj, err := GetVmObject(c.Client, vmUuid)
 	if err != nil {
 		fmt.Println("Error getting VM : ", err)
 		return VmPolicyStatus, err

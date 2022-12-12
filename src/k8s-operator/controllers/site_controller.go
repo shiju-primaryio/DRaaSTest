@@ -108,13 +108,15 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	*/
 
 	var policyId string
+	fmt.Println("instance.Status.PolicyId: ", instance.Status.PolicyId)
 	//If Host field is set, then create Storage Policy if doesn't exist already
 	//if instance.Spec.StoragePolicy.Host != "" && instance.Status.PolicyId != "" {
 	if instance.Spec.StoragePolicy.Host != "" {
 		fmt.Println("Creating storage policy.......")
 		policyId, err = CreateStoragePolicyForSite(instance.Spec.VCenter, instance.Spec.StoragePolicy)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create policy.")
+			//reqLogger.Error(err, "Failed to create policy.")
+			fmt.Println(err, "Failed to create policy.")
 		}
 
 		instance.Status.PolicyId = policyId

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -202,6 +203,7 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, err
 
 func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails draasv1alpha1.StoragePolicySpec) (string, error) {
 
+	PolicyName := "PrimaryIO_replication"
 	var PolicyIdStr string
 	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
 	u, err := url.Parse(urlString)
@@ -214,6 +216,18 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 	c, err := govmomi.NewClient(ctx, u, true)
 	if err != nil {
 		fmt.Println("Error connecting to ESX : ", err)
+		return "", err
+	}
+
+	policyinfo, err := GetPolicy(PolicyName, vcenter)
+	if err != nil {
+		fmt.Println("Error fetching existing policies from vCenter : ", err)
+		return "", err
+	}
+
+	if policyinfo.PolicyId == "" {
+		fmt.Println("Storage policy 'PrimaryIO_replication' already exists.")
+		err = errors.New("storsge polivy 'PrimaryIO_replication' already exists")
 		return "", err
 	}
 
@@ -386,25 +400,27 @@ func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 			thinProvisioned := *(disk.Backing.(*types.VirtualDiskFlatVer2BackingInfo).ThinProvisioned)
 			unitNumber := disk.UnitNumber
 			label := labelPattern.FindString(fileName)[1:]
-			var iofilter string
+			var filterName string
 			//iofilters := disk.Iofilter
 			for _, iof := range disk.Iofilter {
 				if strings.Contains(iof, "primaryio") {
-					iofilter = iof
+					filterName = iof
 					isProtected = true
 					break
 				}
 			}
 
+			fmt.Println("--- filterName: ", filterName)
+
 			vmdkDB := draasv1alpha1.Disk{
 				Name:            fileName,
 				Datastore:       datastore,
+				IofilterName:    filterName,
 				ThinProvisioned: thinProvisioned,
 				SizeMB:          sizeMB,
 				UnitNumber:      *unitNumber,
 				Label:           label,
 				VmId:            vm.Summary.Vm.Value,
-				IofilterName:    iofilter,
 			}
 			vmdks = append(vmdks, vmdkDB)
 		}
@@ -459,8 +475,8 @@ func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState 
 		fmt.Println("Powering on VM...")
 		task, err = vmObj.PowerOn(ctx)
 	} else if (!powerState) && (CurrentPowerState == types.VirtualMachinePowerStatePoweredOn) {
-		fmt.Println("Powering on VM...")
-		task, err = vmObj.PowerOn(ctx)
+		fmt.Println("Powering off VM...")
+		task, err = vmObj.PowerOff(ctx)
 	} else {
 		fmt.Println("Already in the desired power state. Not doing anything.")
 		return "", nil

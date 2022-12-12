@@ -14,14 +14,12 @@ import (
 
 // Obtain a client to call vCenter APIs
 func GetVCenterClient(vcenter draasv1alpha1.VCenterSpec) (*vim25.Client, error) {
+	ctx := context.Background()
 	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
 	vCenterUrl, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	insecure := true
 	/* if os.Getenv("VCENTER_INSECURE") != "1" {
@@ -40,8 +38,7 @@ func GetVCenterClient(vcenter draasv1alpha1.VCenterSpec) (*vim25.Client, error) 
 
 func GetVmObject(vCenterClient *vim25.Client, vmUuid string) (object.VirtualMachine, error) {
 	var vmObj object.VirtualMachine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := context.Background()
 
 	f := find.NewFinder(vCenterClient, true)
 	// Find one and only datacenter
