@@ -98,15 +98,12 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		for _, vm := range instance.Spec.ProtectVMUUIDList {
 			fmt.Println("Changing policy state for Vm: ", vm.VmUuid)
 
-			if vm.IsPolicyAttach {
-				vmPolicyStatus, err = AttachPolicy(instance.Spec.VCenter, vm.VmUuid)
-			} else {
-				vmPolicyStatus, err = DetachPolicy(instance.Spec.VCenter, vm.VmUuid)
-			}
+			vmPolicyStatus, err = ChangePolicyState(instance.Spec.VCenter, vm.VmUuid, vm.IsPolicyAttach)
 			if err != nil {
 				reqLogger.Error(err, "Failed to change state of VM.")
 			}
 
+			fmt.Println("VmPolicyStatus.IsPolicyAttach : ", vmPolicyStatus.IsPolicyAttach)
 			instance.Status.VmStoragePolicyStatus = append(instance.Status.VmStoragePolicyStatus, vmPolicyStatus)
 			fmt.Println("Setting ProtectVMUUIDList to Nil .......")
 			instance.Spec.ProtectVMUUIDList = nil
