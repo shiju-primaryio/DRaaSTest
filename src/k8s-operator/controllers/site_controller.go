@@ -128,7 +128,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	//fmt.Println("get vmList.......")
 	// Fetch VMs from VCenter on Site Creation only
-	vmList, err := getVmList(instance.Spec.VCenter)
+	vmList, err := getVmList(instance.Spec.VCenter, nil)
 	if err != nil {
 		reqLogger.Error(err, "Failed to fetch VM list")
 	}

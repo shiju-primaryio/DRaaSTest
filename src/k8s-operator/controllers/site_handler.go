@@ -111,7 +111,7 @@ func getVmMap(vcenter draasv1alpha1.VCenterSpec) (map[string]draasv1alpha1.VMSta
 
 */
 
-func getVmList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, error) {
+func getVmList(vcenter draasv1alpha1.VCenterSpec, vmUuidList []string) ([]draasv1alpha1.VMStatus, error) {
 	var vmList []draasv1alpha1.VMStatus
 	//var vmList := make([]draasv1alpha1.VMStatus)
 
@@ -192,8 +192,15 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.VMStatus, err
 			IsProtected: isProtected,
 		}
 
-		//fmt.Println("vmDB.PowerState: ", vmDB.PowerState)
-		vmList = append(vmList, vmDB)
+		if len(vmUuidList) != 0 {
+			vmList = append(vmList, vmDB)
+		} else {
+			for _, vmuuid := range vmUuidList {
+				if vmuuid == vmDB.VmUuid {
+					vmList = append(vmList, vmDB)
+				}
+			}
+		}
 	}
 
 	vmMapNew := make([]draasv1alpha1.VMStatus, len(vmList))
@@ -382,6 +389,53 @@ func CreateStoragePolicyForSite(vcenter draasv1alpha1.VCenterSpec, policyDetails
 
 	fmt.Println("Policy ID: ", id.UniqueId)
 	return PolicyIdStr, err
+}
+
+func DeleteStoragePolicy(vcenter draasv1alpha1.VCenterSpec, policyDetails draasv1alpha1.StoragePolicySpec) error {
+	PolicyName := "PrimaryIO_replication"
+	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
+	u, err := url.Parse(urlString)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Connect and log in to ESX or vCenter
+	c, err := govmomi.NewClient(ctx, u, true)
+	if err != nil {
+		fmt.Println("Error connecting to ESX : ", err)
+		return err
+	}
+
+	policyinfo, err := GetPolicy(PolicyName, vcenter)
+	if err != nil {
+		fmt.Println("Error fetching existing policies from vCenter : ", err)
+		return err
+	}
+
+	if policyinfo.PolicyId == "" {
+		fmt.Println("Storage policy 'PrimaryIO_replication' not available at vCenter.")
+		err = errors.New("storsge polivy 'PrimaryIO_replication' not available at vCenter")
+		return err
+	}
+
+	pbmSi, err := pbm.NewClient(ctx, c.Client)
+	if err != nil {
+		fmt.Println("Error creating pbm client : ", err)
+		return err
+	}
+
+	var profileIds []pbmtypes.PbmProfileId
+	profileIds = append(profileIds, pbmtypes.PbmProfileId{UniqueId: policyinfo.PolicyId})
+
+	//delete profile
+	outcome, err := pbmSi.DeleteProfile(ctx, profileIds)
+	if err != nil {
+		fmt.Println("Error delete policy : ", err)
+		return err
+	}
+
+	fmt.Println(outcome)
+	return nil
+
 }
 
 func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
