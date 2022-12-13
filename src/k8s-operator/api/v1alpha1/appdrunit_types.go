@@ -62,7 +62,7 @@ type AppDRUnitStatus struct {
 
 	FailoverStatus string `json:"failoverStatus,omitempty"`
 	//VmdkUUIDMap map[string][string]
-	VmList []VMStatus `json:"vmList,omitempty"`
+	ProtectedVmList []VMStatus `json:"protectedVmList"`
 }
 
 //+kubebuilder:object:root=true
@@ -74,7 +74,7 @@ type AppDRUnit struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   AppDRUnitSpec   `json:"spec,omitempty"`
-	Status AppDRUnitStatus `json:"status,omitempty"`
+	Status AppDRUnitStatus `json:"status"`
 }
 
 //+kubebuilder:object:root=true

@@ -192,7 +192,7 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec, vmUuidList []string) ([]draasv
 			IsProtected: isProtected,
 		}
 
-		if len(vmUuidList) != 0 {
+		if vmUuidList == nil {
 			vmList = append(vmList, vmDB)
 		} else {
 			for _, vmuuid := range vmUuidList {
