@@ -13,14 +13,12 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, vmUuid string, policyAttach bool) (draasv1alpha1.VmPolicyStatus, error) {
-	var VmPolicyStatus draasv1alpha1.VmPolicyStatus
+func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, vmUuid string, policyAttach bool) (draasv1alpha1.VMStatus, error) {
+	var VmPolicyStatus draasv1alpha1.VMStatus
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	PolicyName := "PrimaryIO_replication"
-	VmPolicyStatus.VmUuid = vmUuid
-	VmPolicyStatus.IsPolicyAttach = false
 
 	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
 	u, err := url.Parse(urlString)
@@ -112,179 +110,20 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, vmUuid string, policyA
 		}
 	}
 
-	VmPolicyStatus.VmUuid = vmUuid
-	VmPolicyStatus.IsPolicyAttach = policyAttach
-	fmt.Println("Setting ProtectVMUUIDList to Nil .......")
+	vmList, err = getVmList(vcenter)
+	if err != nil {
+		fmt.Println("Failed to fetch VM list", err)
+		return VmPolicyStatus, err
+	}
+
+	for _, vm := range vmList {
+		if vm.VmUuid == vmUuid {
+			fmt.Println("adding vmstatus....")
+			VmPolicyStatus = vm
+		}
+	}
+
 	fmt.Println("Storage policy state changed successfully to VM : ", vmObj.Name())
-
-	return VmPolicyStatus, nil
-}
-
-func AttachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alpha1.VmPolicyStatus, error) {
-	var VmPolicyStatus draasv1alpha1.VmPolicyStatus
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	PolicyName := "PrimaryIO_replication"
-	VmPolicyStatus.VmUuid = vmUuid
-	VmPolicyStatus.IsPolicyAttach = false
-
-	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
-	u, err := url.Parse(urlString)
-
-	// Connect and log in to ESX or vCenter
-	c, err := govmomi.NewClient(ctx, u, true)
-	if err != nil {
-		fmt.Println("Error connecting to ESX : ", err)
-		return VmPolicyStatus, err
-	}
-
-	//Verify policy already attached to VM
-	vmList, err := getVmList(vcenter)
-	if err != nil {
-		fmt.Println("Failed to fetch VM list", err)
-		return VmPolicyStatus, err
-	}
-
-	for _, vm := range vmList {
-		if vm.VmUuid == vmUuid {
-			if vm.IsProtected {
-				fmt.Println("Policy already attached to VM.")
-				err = errors.New("policy already attached to VM")
-				return VmPolicyStatus, err
-			}
-		}
-	}
-
-	//Get Policy details
-	policyDetails, err := GetPolicy(PolicyName, vcenter)
-	if err != nil {
-		fmt.Println("Unable to fetch policies from vCenter.")
-		return VmPolicyStatus, err
-	} else if policyDetails.PolicyId == "" {
-		fmt.Println("Policy with given name not availabe at vCenter.")
-		err = errors.New("policy with given name not availabe at vCenter")
-		return VmPolicyStatus, err
-	}
-
-	vmObj, err := GetVmObject(c.Client, vmUuid)
-	if err != nil {
-		fmt.Println("Error getting VM : ", err)
-		return VmPolicyStatus, err
-	}
-
-	deviceList, err := vmObj.Device(ctx)
-	if err != nil {
-		fmt.Println("Error failed to fetch VM device : ", err)
-		return VmPolicyStatus, err
-	}
-
-	for _, device := range deviceList {
-		switch disk := device.(type) {
-		case *types.VirtualDisk:
-			spec := types.VirtualMachineConfigSpec{}
-			config := &types.VirtualDeviceConfigSpec{
-				Device:    disk,
-				Operation: types.VirtualDeviceConfigSpecOperationEdit,
-				Profile: []types.BaseVirtualMachineProfileSpec{
-					&types.VirtualMachineDefinedProfileSpec{
-						ProfileId: policyDetails.PolicyId,
-					},
-				},
-			}
-
-			spec.DeviceChange = append(spec.DeviceChange, config)
-
-			task, err := vmObj.Reconfigure(ctx, spec)
-			if err != nil {
-				return VmPolicyStatus, err
-			}
-
-			err = task.Wait(ctx)
-			if err != nil {
-				fmt.Println("error changing disk storage policy : ", err)
-				return VmPolicyStatus, err
-			}
-		}
-	}
-
-	VmPolicyStatus.VmUuid = vmUuid
-	VmPolicyStatus.IsPolicyAttach = true
-	fmt.Println("Storage policy attached successfully to VM : ", vmObj.Name())
-	return VmPolicyStatus, nil
-}
-
-func DetachPolicy(vcenter draasv1alpha1.VCenterSpec, vmUuid string) (draasv1alpha1.VmPolicyStatus, error) {
-	var VmPolicyStatus draasv1alpha1.VmPolicyStatus
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	//PolicyName := "PrimaryIO_replication"
-	VmPolicyStatus.VmUuid = vmUuid
-	VmPolicyStatus.IsPolicyAttach = true
-
-	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
-	u, err := url.Parse(urlString)
-
-	// Connect and log in to ESX or vCenter
-	c, err := govmomi.NewClient(ctx, u, true)
-	if err != nil {
-		fmt.Println("Error connecting to ESX : ", err)
-		return VmPolicyStatus, err
-	}
-
-	//Verify policy attached to VM
-	vmList, err := getVmList(vcenter)
-	if err != nil {
-		fmt.Println("Failed to fetch VM list", err)
-		return VmPolicyStatus, err
-	}
-
-	for _, vm := range vmList {
-		if vm.VmUuid == vmUuid {
-			if !vm.IsProtected {
-				fmt.Println("Policy not attached to VM.")
-				err = errors.New("policy not attached to VM")
-				return VmPolicyStatus, err
-			}
-		}
-	}
-
-	vmObj, err := GetVmObject(c.Client, vmUuid)
-	if err != nil {
-		fmt.Println("Error getting VM : ", err)
-		return VmPolicyStatus, err
-	}
-
-	deviceList, err := vmObj.Device(ctx)
-	for _, device := range deviceList {
-		switch disk := device.(type) {
-		case *types.VirtualDisk:
-			spec := types.VirtualMachineConfigSpec{}
-
-			config := &types.VirtualDeviceConfigSpec{
-				Device:    disk,
-				Operation: types.VirtualDeviceConfigSpecOperationEdit,
-				Profile:   []types.BaseVirtualMachineProfileSpec{&types.VirtualMachineEmptyProfileSpec{}},
-			}
-
-			spec.DeviceChange = append(spec.DeviceChange, config)
-
-			task, err := vmObj.Reconfigure(ctx, spec)
-			if err != nil {
-				return VmPolicyStatus, err
-			}
-
-			err = task.Wait(ctx)
-			if err != nil {
-				fmt.Println("error removing disk policy: ", err)
-				return VmPolicyStatus, err
-			}
-		}
-	}
-
-	VmPolicyStatus.VmUuid = vmUuid
-	VmPolicyStatus.IsPolicyAttach = false
-	fmt.Println("Storage policy detached successfully from VM : ", vmObj.Name())
 	return VmPolicyStatus, nil
 }
 
@@ -308,8 +147,6 @@ func GetPolicy(PolicyName string, vcenter draasv1alpha1.VCenterSpec) (draasv1alp
 
 	return response_body, err
 }
-
-//IsPolicyExists should return true/false only
 
 func GetPolicyList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.PolicyDetails, error) {
 	var policyList []draasv1alpha1.PolicyDetails

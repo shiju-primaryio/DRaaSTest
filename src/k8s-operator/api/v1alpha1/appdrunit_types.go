@@ -53,11 +53,6 @@ type VmPolicyRequest struct {
 	IsPolicyAttach bool   `json:"isPolicyAttach,omitempty"`
 }
 
-type VmPolicyStatus struct {
-	VmUuid         string `json:"vmUuid,omitempty"`
-	IsPolicyAttach bool   `json:"isPolicyAttach,omitempty"`
-}
-
 // AppDRUnitStatus defines the observed state of AppDRUnit
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -67,7 +62,7 @@ type AppDRUnitStatus struct {
 
 	FailoverStatus string `json:"failoverStatus,omitempty"`
 	//VmdkUUIDMap map[string][string]
-	VmStoragePolicyStatus []VmPolicyStatus `json:"vmStoragePolicyStatus,omitempty"`
+	VmList []VMStatus `json:"vmList,omitempty"`
 }
 
 //+kubebuilder:object:root=true

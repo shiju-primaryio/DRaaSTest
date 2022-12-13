@@ -93,19 +93,19 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if instance.Spec.ProtectVMUUIDList != nil {
-		var vmPolicyStatus draasv1alpha1.VmPolicyStatus
-		instance.Status.VmStoragePolicyStatus = nil
+		var vmDetails draasv1alpha1.VMStatus
+		instance.Status.VmList = nil
 		for _, vm := range instance.Spec.ProtectVMUUIDList {
 			fmt.Println("Changing policy state for Vm: ", vm.VmUuid)
 
-			vmPolicyStatus, err = ChangePolicyState(instance.Spec.VCenter, vm.VmUuid, vm.IsPolicyAttach)
+			vmDetails, err = ChangePolicyState(instance.Spec.VCenter, vm.VmUuid, vm.IsPolicyAttach)
 			if err != nil {
 				//reqLogger.Error(err, "Failed to change state of VM.")
 				fmt.Println("Failed to attach VM .......")
 			}
 
-			fmt.Println("VmPolicyStatus.IsPolicyAttach : ", vmPolicyStatus.IsPolicyAttach)
-			instance.Status.VmStoragePolicyStatus = append(instance.Status.VmStoragePolicyStatus, vmPolicyStatus)
+			fmt.Println("vmDetails.Name : ", vmDetails.Name)
+			instance.Status.VmList = append(instance.Status.VmList, vmDetails)
 			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 				reqLogger.Error(err, "Failed to update Site status")
 			}
