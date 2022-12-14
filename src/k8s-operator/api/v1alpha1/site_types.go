@@ -102,6 +102,7 @@ type VMStatus struct {
 	NumDisks    int      `json:"num_disks,omitempty"`
 	IsPowerOn   bool     `json:"isPowerOn"`
 	PowerState  string   `json:"power_state,omitempty"`
+	Controller  string   `json:"controller"`
 }
 
 // Disk configuration
@@ -114,6 +115,7 @@ type Disk struct {
 	UnitNumber      int32  `json:"unit_number"`
 	Label           string `json:"label,omitempty"`
 	IofilterName    string `json:"iofilter_name"`
+	AbsPath         string `json:"abs_path"`
 }
 
 type ErrorField struct {

@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
 	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/find"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/pbm"
 	pbmtypes "github.com/vmware/govmomi/pbm/types"
 	"github.com/vmware/govmomi/vim25/types"
@@ -211,4 +214,159 @@ func GetPolicyList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.PolicyDet
 	}
 
 	return policyList, err
+}
+
+func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) (string, error) {
+	var devices object.VirtualDeviceList
+
+	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
+	u, err := url.Parse(urlString)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// Connect and log in to ESX or vCenter
+	c, err := govmomi.NewClient(ctx, u, true)
+	if err != nil {
+		fmt.Println("Error connecting to ESX : ", err)
+		return "", err
+	}
+
+	finder := find.NewFinder(c.Client, false)
+	dc, err := finder.DefaultDatacenter(ctx)
+	if err != nil {
+		fmt.Println("Error finding default datacenter  : ", err)
+		return "", err
+	}
+
+	finder.SetDatacenter(dc)
+	ds, err := finder.DefaultDatastore(ctx)
+	if err != nil {
+		fmt.Println("Error finding default datacenter.  : ", err)
+		return "", err
+	}
+
+	folders, err := dc.Folders(ctx)
+	if err != nil {
+		fmt.Println("Error finding default datacenter folders  : ", err)
+		return "", err
+	}
+
+	hosts, err := finder.HostSystemList(ctx, "*/*")
+	if err != nil {
+		fmt.Println("Error finding host system list  : ", err)
+		return "", err
+	}
+
+	nhosts := len(hosts)
+	host := hosts[rand.Intn(nhosts)]
+	pool, err := host.ResourcePool(ctx)
+	if err != nil {
+		fmt.Println("Error finding Resource Pool: ", err)
+		return "", err
+	}
+
+	if nhosts == 1 {
+		host = nil
+	}
+
+	vmFolder := folders.VmFolder
+	var vmx string
+	spec := types.VirtualMachineConfigSpec{
+		// Note: real ESX allows the VM to be created without a GuestId,
+		// but will power on will fail.
+		Name:     vmInfo.Name,
+		NumCPUs:  vmInfo.CPUs,
+		MemoryMB: int64(vmInfo.MemoryMB),
+		GuestId:  vmInfo.GuestID,
+	}
+
+	vmx = fmt.Sprintf("%s/%s.vmx", spec.Name, spec.Name)
+	spec.Files = &types.VirtualMachineFileInfo{
+		VmPathName: fmt.Sprintf("[%s] %s", ds.Name(), vmx)}
+
+	devices, err = AddStorage(vmInfo)
+	if err != nil {
+		return "", err
+	}
+
+	deviceChange, err := devices.ConfigSpec(types.VirtualDeviceConfigSpecOperationAdd)
+	if err != nil {
+		return "", err
+	}
+
+	spec.DeviceChange = deviceChange
+	task, cerr := vmFolder.CreateVM(ctx, spec, pool, host)
+	if cerr != nil {
+		fmt.Println("Error Create VM  : ", err)
+		return "", err
+	}
+
+	cerr = task.Wait(ctx)
+	if cerr != nil {
+		fmt.Println("failed to create VM : ", cerr)
+		return "", err
+	}
+
+	fmt.Println("**********Create VM succeeds************ ")
+
+	return "", err
+}
+
+func AddStorage(vmInfo draasv1alpha1.VMStatus) (object.VirtualDeviceList, error) {
+	var devices object.VirtualDeviceList
+
+	for _, disk := range vmInfo.Disks {
+		if vmInfo.Controller != "ide" {
+			if vmInfo.Controller == "nvme" {
+				nvme, err := devices.CreateNVMEController()
+				if err != nil {
+					return nil, err
+				}
+
+				devices = append(devices, nvme)
+				vmInfo.Controller = devices.Name(nvme)
+			} else {
+				scsi, err := devices.CreateSCSIController("")
+				if err != nil {
+					return nil, err
+				}
+
+				devices = append(devices, scsi)
+				vmInfo.Controller = devices.Name(scsi)
+			}
+		}
+
+		//TODO
+		/* // If controller is specified to be IDE or if an ISO is specified, add IDE controller.
+		if vmReq.Controller == "ide" || cmd.iso != "" {
+			ide, err := devices.CreateIDEController()
+			if err != nil {
+				return nil, err
+			}
+
+			devices = append(devices, ide)
+		} */
+
+		controller, err := devices.FindDiskController(vmInfo.Controller)
+		if err != nil {
+			return nil, err
+		}
+
+		disk := &types.VirtualDisk{
+			VirtualDevice: types.VirtualDevice{
+				Key:        devices.NewKey(),
+				UnitNumber: &disk.UnitNumber,
+				Backing: &types.VirtualDiskFlatVer2BackingInfo{
+					DiskMode:        string(types.VirtualDiskModePersistent),
+					ThinProvisioned: types.NewBool(true),
+				},
+			},
+			CapacityInKB: disk.SizeMB * 1024,
+			//TODO Iofilter: ,
+		}
+
+		devices.AssignController(disk, controller)
+		devices = append(devices, disk)
+	}
+
+	return devices, nil
 }

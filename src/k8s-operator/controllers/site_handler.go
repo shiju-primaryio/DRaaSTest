@@ -14,6 +14,7 @@ import (
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/view"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
@@ -131,6 +132,22 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec, vmUuidList []string) ([]draasv
 		return nil, err
 	}
 
+	//get datastore info
+	m := view.NewManager(c.Client)
+	v, err := m.CreateContainerView(ctx, c.ServiceContent.RootFolder, []string{"Datastore"}, true)
+	if err != nil {
+		fmt.Println("Error create container : ", err)
+		return nil, err
+	}
+	defer v.Destroy(ctx)
+
+	var dss []mo.Datastore
+	err = v.Retrieve(ctx, []string{"Datastore"}, []string{"summary"}, &dss)
+	if err != nil {
+		fmt.Println("Error fetching datastores: ", err)
+		return nil, err
+	}
+
 	f := find.NewFinder(c.Client, true)
 	// Find one and only datacenter
 	dc, err := f.DefaultDatacenter(ctx)
@@ -163,7 +180,7 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec, vmUuidList []string) ([]draasv
 	}
 
 	for _, vm := range vmt {
-		vmdks, isProtected := GetVmdks(vm)
+		vmdks, isProtected := GetVmdks(vm, dss)
 		var ipAddress []string
 		for _, nic := range vm.Guest.Net {
 			// available in api v5
@@ -438,7 +455,7 @@ func DeleteStoragePolicy(vcenter draasv1alpha1.VCenterSpec, policyDetails draasv
 
 }
 
-func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
+func GetVmdks(vm mo.VirtualMachine, dss []mo.Datastore) ([]draasv1alpha1.Disk, bool) {
 	var vmdks []draasv1alpha1.Disk
 	var isProtected bool
 	labelPattern := regexp.MustCompile(`/[\w*-]*.vmdk$`)
@@ -455,6 +472,8 @@ func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 			unitNumber := disk.UnitNumber
 			label := labelPattern.FindString(fileName)[1:]
 			var filterName string
+			absPath := getAbsPath(dss, fileName)
+
 			//iofilters := disk.Iofilter
 			for _, iof := range disk.Iofilter {
 				if strings.Contains(iof, "primaryio") {
@@ -475,6 +494,7 @@ func GetVmdks(vm mo.VirtualMachine) ([]draasv1alpha1.Disk, bool) {
 				UnitNumber:      *unitNumber,
 				Label:           label,
 				VmId:            vm.Summary.Vm.Value,
+				AbsPath:         absPath,
 			}
 			vmdks = append(vmdks, vmdkDB)
 		}

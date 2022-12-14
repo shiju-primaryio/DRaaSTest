@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/session/cache"
 	"github.com/vmware/govmomi/vim25"
+	"github.com/vmware/govmomi/vim25/mo"
 )
 
 // Obtain a client to call vCenter APIs
@@ -63,4 +65,18 @@ func GetVmObject(vCenterClient *vim25.Client, vmUuid string) (object.VirtualMach
 	}
 
 	return vmObj, nil
+}
+
+func getAbsPath(dss []mo.Datastore, fileName string) string {
+	var absolutePath string
+	datstore := strings.Split(fileName, " ")[0][1:]
+	dbs := datstore[:len(datstore)-1]
+	vmdkPath := strings.Split(fileName, " ")[1]
+	for _, ds := range dss {
+		if dbs == ds.Summary.Name {
+			absolutePath = (strings.Split(ds.Summary.Url, ":")[1] + vmdkPath)[2:]
+		}
+	}
+
+	return absolutePath
 }
