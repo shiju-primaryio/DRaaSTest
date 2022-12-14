@@ -57,12 +57,11 @@ type VmPolicyRequest struct {
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Site       string `json:"site,omitempty"`
-	RemoteSite string `json:"remoteSite,omitempty"`
+	Site            string     `json:"site,omitempty"`
+	ProtectedVmList []VMStatus `json:"protectedVmList,omitempty"`
+	RemoteSite      string     `json:"remoteSite,omitempty"`
 
 	FailoverStatus string `json:"failoverStatus,omitempty"`
-	//VmdkUUIDMap map[string][string]
-	ProtectedVmList []VMStatus `json:"protectedVmList"`
 }
 
 //+kubebuilder:object:root=true
@@ -74,7 +73,7 @@ type AppDRUnit struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   AppDRUnitSpec   `json:"spec,omitempty"`
-	Status AppDRUnitStatus `json:"status"`
+	Status AppDRUnitStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true

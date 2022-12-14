@@ -92,46 +92,50 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, nil
 	}
 
+	instance.Status.FailoverStatus = "Failover_Not_Started"
+	instance.Status.Site = "test"
+	instance.Status.RemoteSite = "test-dr"
+
+	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+		reqLogger.Error(err, "Failed to update Site status")
+	}
+
+	var vmDetailList []draasv1alpha1.VMStatus
 	if instance.Spec.ProtectVMUUIDList != nil {
-		var vmDetails draasv1alpha1.VMStatus
-		for _, vm := range instance.Spec.ProtectVMUUIDList {
-			fmt.Println("Changing policy state for Vm: ", vm.VmUuid)
 
-			vmDetails, err = ChangePolicyState(instance.Spec.VCenter, vm.VmUuid, vm.IsPolicyAttach)
-			if err != nil {
-				//reqLogger.Error(err, "Failed to change state of VM.")
-				fmt.Println("Failed to attach VM .......")
-			}
-
-			bFoundVmAlreadyProtected := false
-			fmt.Println("vmDetails.Name : ", vmDetails.Name)
-			for _, pvm := range instance.Status.ProtectedVmList {
-				if pvm.VmUuid == vmDetails.VmUuid {
-					pvm = vmDetails
-					bFoundVmAlreadyProtected = true
-				}
-			}
-			if bFoundVmAlreadyProtected == false {
-				instance.Status.ProtectedVmList = append(instance.Status.ProtectedVmList, vmDetails)
-			}
+		vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, instance.Spec.ProtectVMUUIDList)
+		if err != nil {
+			//reqLogger.Error(err, "Failed to change state of VM.")
+			fmt.Println("Failed to attach VM .......", err)
 		}
-		for _, vm := range instance.Status.ProtectedVmList {
-			fmt.Println("VmUUID: ", vm.VmUuid)
-			fmt.Println("vmName : ", vm.Name)
-		}
-
+		/*
+			for _, vm := range vmDetailList {
+				fmt.Println("VmUUID: ", vm.VmUuid)
+				fmt.Println("vmName : ", vm.Name)
+			}
+		*/
+		instance.Status.ProtectedVmList = vmDetailList
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update Site status")
 		}
 
-		fmt.Println("Setting ProtectVMUUIDList to Nil .......")
-		instance.Spec.ProtectVMUUIDList = nil
+	}
 
-		if err = r.Client.Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "Failed to update", "Site", instance.Name)
-			return reconcile.Result{}, err
-		}
+	fmt.Println("Setting ProtectVMUUIDList to Nil .......")
+	instance.Spec.ProtectVMUUIDList = nil
+	//update Spec
+	if err = r.Client.Update(context.TODO(), instance); err != nil {
+		reqLogger.Error(err, "Failed to update", "Site", instance.Name)
+		return reconcile.Result{}, err
+	}
 
+	for _, vm := range instance.Status.ProtectedVmList {
+		fmt.Println("PVmUUID: ", vm.VmUuid)
+		fmt.Println("PvmName : ", vm.Name)
+	}
+
+	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+		reqLogger.Error(err, "Failed to update Site status")
 	}
 
 	return ctrl.Result{}, nil
