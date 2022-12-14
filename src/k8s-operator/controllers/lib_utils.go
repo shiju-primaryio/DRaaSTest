@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -9,6 +10,8 @@ import (
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/pbm"
+	pbmtypes "github.com/vmware/govmomi/pbm/types"
 	"github.com/vmware/govmomi/session/cache"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -67,7 +70,7 @@ func GetVmObject(vCenterClient *vim25.Client, vmUuid string) (object.VirtualMach
 	return vmObj, nil
 }
 
-func getAbsPath(dss []mo.Datastore, fileName string) string {
+func GetAbsPath(dss []mo.Datastore, fileName string) string {
 	var absolutePath string
 	datstore := strings.Split(fileName, " ")[0][1:]
 	dbs := datstore[:len(datstore)-1]
@@ -79,4 +82,50 @@ func getAbsPath(dss []mo.Datastore, fileName string) string {
 	}
 
 	return absolutePath
+}
+
+func GetProfileId(vCenterClient *vim25.Client) (string, error) {
+	PolicyName := "PrimaryIO_replication"
+	ctx := context.Background()
+
+	pbmSi, err := pbm.NewClient(ctx, vCenterClient)
+	if err != nil {
+		fmt.Println("Error creating pbm client : ", err)
+		return "", err
+	}
+
+	category := pbmtypes.PbmProfileCategoryEnumREQUIREMENT
+	rtype := pbmtypes.PbmProfileResourceType{
+		ResourceType: string(pbmtypes.PbmProfileResourceTypeEnumSTORAGE),
+	}
+
+	//Query all the profiles on the vCenter.
+	ids, err := pbmSi.QueryProfile(ctx, rtype, string(category))
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	//Retrieve the content of all profiles.
+	policies, err := pbmSi.RetrieveContent(ctx, ids)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	var profile *pbmtypes.PbmProfile
+	for i := range policies {
+		profile = policies[i].GetPbmProfile()
+		if profile.Name == PolicyName {
+			break
+		}
+	}
+
+	profileId := profile.ProfileId.UniqueId
+	if profileId == "" {
+		err = errors.New("policy not available")
+		return "", err
+
+	}
+
+	return profile.ProfileId.UniqueId, nil
+
 }

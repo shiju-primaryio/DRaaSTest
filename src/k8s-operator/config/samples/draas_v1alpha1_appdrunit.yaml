@@ -18,4 +18,5 @@ spec:
     isPolicyAttach: true
   - vmUuid: "422afef8-acdf-d896-f32d-2edd5435ac8b"
     isPolicyAttach: true
- 
+  - vmUuid: "422ac628-af0c-08d0-a678-8e91f239bb50"
+    isPolicyAttach: true

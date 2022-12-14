@@ -300,13 +300,53 @@ func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) 
 		return "", err
 	}
 
-	cerr = task.Wait(ctx)
-	if cerr != nil {
+	info, err := task.WaitForResult(ctx, nil)
+	if err != nil {
 		fmt.Println("failed to create VM : ", cerr)
 		return "", err
 	}
 
 	fmt.Println("**********Create VM succeeds************ ")
+	fmt.Println("Attach Policy to disks... ")
+
+	profileId, err := GetProfileId(c.Client)
+	if err != nil {
+		fmt.Println("failed to get profileId : ", cerr)
+		return "", err
+	}
+
+	//Attach Storage policy to disks
+	vm := object.NewVirtualMachine(c.Client, info.Result.(types.ManagedObjectReference))
+
+	deviceList, err := vm.Device(ctx)
+	for _, device := range deviceList {
+		switch disk := device.(type) {
+		case *types.VirtualDisk:
+			spec := types.VirtualMachineConfigSpec{}
+			config := &types.VirtualDeviceConfigSpec{
+				Device:    disk,
+				Operation: types.VirtualDeviceConfigSpecOperationEdit,
+				Profile: []types.BaseVirtualMachineProfileSpec{
+					&types.VirtualMachineDefinedProfileSpec{
+						ProfileId: profileId,
+					},
+				},
+			}
+
+			spec.DeviceChange = append(spec.DeviceChange, config)
+
+			task, err := vm.Reconfigure(ctx, spec)
+			if err != nil {
+				return "", err
+			}
+
+			err = task.Wait(ctx)
+			if err != nil {
+				fmt.Println("error changing disk policy : ", err)
+				return "", err
+			}
+		}
+	}
 
 	return "", err
 }

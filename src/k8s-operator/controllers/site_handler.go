@@ -472,7 +472,7 @@ func GetVmdks(vm mo.VirtualMachine, dss []mo.Datastore) ([]draasv1alpha1.Disk, b
 			unitNumber := disk.UnitNumber
 			label := labelPattern.FindString(fileName)[1:]
 			var filterName string
-			absPath := getAbsPath(dss, fileName)
+			absPath := GetAbsPath(dss, fileName)
 
 			//iofilters := disk.Iofilter
 			for _, iof := range disk.Iofilter {
