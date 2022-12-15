@@ -70,6 +70,8 @@ type VMDKFromPostGresDResponse struct {
 type TriggerFailoverVmdkMapping struct {
 	VmName            string `json:"vmName,omitempty"`
 	UnitNumber        int    `json:"unitNumber"`
+	ScsiControllerId  string `json:"scsiControllerId,omitempty"`
+	Label             string `json:"label,omitempty"`
 	SourceVmdkID      string `json:"sourceVmdkID,omitempty"`
 	TargetVmdkID      string `json:"targetVmdkID,omitempty"`
 	SourceVmUUID      string `json:"sourceVmUUID,omitempty"`

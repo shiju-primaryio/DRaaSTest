@@ -88,6 +88,7 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 		for _, device := range deviceList {
 			switch disk := device.(type) {
 			case *types.VirtualDisk:
+				var vmProfilespec []types.BaseVirtualMachineProfileSpec
 				config := &types.VirtualDeviceConfigSpec{}
 				spec := types.VirtualMachineConfigSpec{}
 				if policyAttach {
@@ -110,15 +111,22 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 							},
 						},
 					}
+					vmProfilespec = []types.BaseVirtualMachineProfileSpec{
+						&types.VirtualMachineDefinedProfileSpec{
+							ProfileId: policyDetails.PolicyId,
+						},
+					}
 				} else if !policyAttach {
 					config = &types.VirtualDeviceConfigSpec{
 						Device:    disk,
 						Operation: types.VirtualDeviceConfigSpecOperationEdit,
 						Profile:   []types.BaseVirtualMachineProfileSpec{&types.VirtualMachineEmptyProfileSpec{}},
 					}
+					vmProfilespec = []types.BaseVirtualMachineProfileSpec{&types.VirtualMachineEmptyProfileSpec{}}
 				}
 
 				spec.DeviceChange = append(spec.DeviceChange, config)
+				spec.VmProfile = vmProfilespec
 				task, err := vmObj.Reconfigure(ctx, spec)
 				if err != nil {
 					return VmDetails, err
@@ -231,6 +239,9 @@ func GetVMDKsFromPostGresDB(VesAuth string, vmdkmapList []draasv1alpha1.TriggerF
 	req2.Header.Add("content-type", "application/json")
 	req2.Header.Add("cache-control", "no-cache")
 	req2.Header.Add("X-VES-Authorization", VesAuth)
+
+	fmt.Println("Request PHP API", req2)
+
 	res2, err2 := http.DefaultClient.Do(req2)
 	if err2 != nil {
 		fmt.Println(err2)
@@ -260,6 +271,13 @@ func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailove
 
 	for _, vmdkmap := range vmdkmapList {
 
+		fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
+		fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+
+		if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
+			fmt.Println("Continuing")
+			continue
+		}
 		//vesauth, _ := ctx.Request.Cookie("VESauth")
 		url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/failovers"
 
@@ -271,6 +289,9 @@ func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailove
 		req2.Header.Add("content-type", "application/json")
 		req2.Header.Add("cache-control", "no-cache")
 		req2.Header.Add("X-VES-Authorization", VesAuth)
+
+		fmt.Println("Request PHP API", req2)
+
 		res2, err2 := http.DefaultClient.Do(req2)
 		if err2 != nil {
 			fmt.Println(err2)
@@ -282,7 +303,7 @@ func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailove
 				fmt.Println(err)
 				fmt.Println("Can not unmarshal JSON")
 			}
-			fmt.Println("Failover Id", result.Data.Id)
+			fmt.Println("Failover Id (vmdkmap.FailoverTriggerID) created by Failover API", result.Data.Id)
 			vmdkmap.FailoverTriggerID = result.Data.Id
 		}
 	}
@@ -406,7 +427,11 @@ func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) 
 					},
 				},
 			}
-
+			spec.VmProfile = []types.BaseVirtualMachineProfileSpec{
+				&types.VirtualMachineDefinedProfileSpec{
+					ProfileId: profileId,
+				},
+			}
 			spec.DeviceChange = append(spec.DeviceChange, config)
 
 			task, err := vm.Reconfigure(ctx, spec)
@@ -422,36 +447,41 @@ func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) 
 		}
 	}
 
-	fmt.Println("Powering ON VM... ")
+	/*
+		fmt.Println("Powering ON VM... ")
 
-	// PowerON VM
-	task, err = vm.PowerOn(ctx)
-	if err != nil {
-		fmt.Printf("Failed to change power state of VM.")
-		//return "", err
-	}
+		// PowerON VM
+		task, err = vm.PowerOn(ctx)
+		if err != nil {
+			fmt.Printf("Failed to change power state of VM.")
+			//return "", err
+		}
 
-	_, err1 := task.WaitForResult(ctx, nil)
-	if err1 != nil {
-		fmt.Printf("VM change power state process failed: %v", err)
-		return "", err
-	}
+		fmt.Printf("Sleeping for 2 Seconds...")
+		time.Sleep(2 * time.Second)
 
-	fmt.Println("Powering OFF VM... ")
+		_, err1 := task.WaitForResult(ctx, nil)
+		if err1 != nil {
+			fmt.Printf("VM change power state process failed: %v", err)
+			return "", err
+		}
 
-	// PowerOFF VM
-	task, err = vm.PowerOff(ctx)
-	if err != nil {
-		fmt.Printf("Failed to change power state of VM.")
-		//return "", err
-	}
+		fmt.Println("Powering OFF VM... ")
 
-	_, err1 = task.WaitForResult(ctx, nil)
-	if err1 != nil {
-		fmt.Printf("VM change power state process failed: %v", err)
-		return "", err
-	}
+		// PowerOFF VM
+		task, err = vm.PowerOff(ctx)
+		if err != nil {
+			fmt.Printf("Failed to change power state of VM.")
+			//return "", err
+		}
 
+		_, err1 = task.WaitForResult(ctx, nil)
+		if err1 != nil {
+			fmt.Printf("VM change power state process failed: %v", err)
+			return "", err
+		}
+
+	*/
 	return "", err
 }
 

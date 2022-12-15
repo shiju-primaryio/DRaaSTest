@@ -140,7 +140,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			fmt.Println("Creating VM : ", vm.Name)
 			CreateVM(vcenter_dr, vm)
 		}
-		fmt.Println("Failover Step2 ")
+		fmt.Println("Failover Step2: Listing Source VMDKs Info.. ")
 		//createVMInfrastructure()
 		instance.Status.FailoverStatus = "Failover_Infrastructure_Creation_Completed"
 		//Step 2: Make all VMs powered OFF
@@ -159,71 +159,105 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			vmdkmap.SourceVmUUID = vm.VmUuid
 			for _, dev := range vm.Disks {
 				vmdkmap.UnitNumber = int(dev.UnitNumber)
-				vmdkmap.SourceScope = dev.Label
+				vmdkmap.SourceScope = dev.AbsPath
+				vmdkmap.Label = dev.Label
+
+				fmt.Println("PVmUUID: ", vm.VmUuid)
+				fmt.Println("PvmName : ", vm.Name)
+				fmt.Println("Source Unit number : ", vmdkmap.UnitNumber)
+				fmt.Println("Source scope : ", vmdkmap.SourceScope)
+
+				vmdkmapList = append(vmdkmapList, vmdkmap)
 			}
-			//vmdkmap.SourceScope = vm.Disks
-			fmt.Println("PVmUUID: ", vm.VmUuid)
-			fmt.Println("PvmName : ", vm.Name)
-			fmt.Println("Source scope : ", vmdkmap.SourceScope)
-
-			vmdkmapList = append(vmdkmapList, vmdkmap)
 		}
-		fmt.Println("Failover Step3 ")
+		fmt.Println("Failover Step3: Listing Target VMDKs Info.. ")
 
-		var vmPolicyRequestList []draasv1alpha1.VmPolicyRequest
-		var vmPolicyRequest draasv1alpha1.VmPolicyRequest
+		//var vmPolicyRequestList []draasv1alpha1.VmPolicyRequest
+		//var vmPolicyRequest draasv1alpha1.VmPolicyRequest
 
-		for _, vm := range instance_dr.Status.VmList {
-			for _, vmdkmap := range vmdkmapList {
+		//Add TargetVMDKUUID and Scope
+		// Fetch VMs from VCenter on Site Creation only
+		vmList, err := getVmList(instance_dr.Spec.VCenter, nil)
+		if err != nil {
+			reqLogger.Error(err, "Failed to fetch VM list")
+		}
+
+		//		for _, vm := range instance_dr.Status.VmList {
+		for _, vm := range vmList {
+			for i, vmdkmap := range vmdkmapList {
 				vmdkmap.TargetVmUUID = vm.VmUuid
 
 				if vmdkmap.VmName == vm.Name {
 
-					vmPolicyRequest.VmUuid = vm.VmUuid
-					vmPolicyRequest.IsPolicyAttach = true
-					vmPolicyRequestList = append(vmPolicyRequestList, vmPolicyRequest)
+					//vmPolicyRequest.VmUuid = vm.VmUuid
+					//vmPolicyRequest.IsPolicyAttach = true
+					//vmPolicyRequestList = append(vmPolicyRequestList, vmPolicyRequest)
 
-					fmt.Println("PVmUUID: ", vm.VmUuid)
-					fmt.Println("PvmName : ", vm.Name)
+					fmt.Println("Target VmUUID: ", vm.VmUuid)
+					fmt.Println("Target vmName : ", vm.Name)
 					vmdkmap.TargetScope = vm.VmUuid
+
 					for _, dev := range vm.Disks {
-						if vmdkmap.UnitNumber == int(dev.UnitNumber) {
-							vmdkmap.TargetScope = dev.Label
-							fmt.Println("Source scope : ", vmdkmap.SourceScope)
+						fmt.Println("listing Unit number : ", dev.UnitNumber)
+						//if vmdkmap.UnitNumber == int(dev.UnitNumber) {
+						if vmdkmap.Label == dev.Label {
+							//fmt.Println("Target Unit number : ", vmdkmap.UnitNumber)
+
+							vmdkmap.TargetScope = dev.AbsPath
+							vmdkmapList[i] = vmdkmap
+							fmt.Println("Target scope : ", vmdkmap.TargetScope)
 						}
 					}
 				}
 			}
 		}
-		fmt.Println("Failover Step4: Calling attach policy ")
-		for _, vminfo := range vmPolicyRequestList {
-			fmt.Println("Failover: id  ", vminfo.VmUuid)
-		}
-		// Attach Policy
-		//ChangePolicyState(vcenter_dr, vmPolicyRequestList)
-		fmt.Println("Failover Step5 ")
+
+		/*
+			fmt.Println("Failover Step4: Calling attach policy ")
+			for _, vminfo := range vmPolicyRequestList {
+				fmt.Println("Failover: id  ", vminfo.VmUuid)
+			}
+			// Attach Policy
+			//ChangePolicyState(vcenter_dr, vmPolicyRequestList)
+			fmt.Println("Failover Step5 ")
+		*/
+		fmt.Println("Failover Step4: Calling  GetVMDKsFromPostGresDB..")
 
 		VMDKListFromPostGresDResponse, err := GetVMDKsFromPostGresDB(VesAuth, vmdkmapList)
 		for _, vminfo := range VMDKListFromPostGresDResponse.Data {
-			for _, vmdkmap := range vmdkmapList {
+			for i, vmdkmap := range vmdkmapList {
+				fmt.Println("Failover : SourceScope:", vmdkmap.SourceScope)
+				fmt.Println("Failover : TargetScope:", vmdkmap.TargetScope)
+				fmt.Println("Failover : vminfo.VmdkScope :", vminfo.VmdkScope)
+
 				if vmdkmap.SourceScope == vminfo.VmdkScope {
-					fmt.Println("PVmUUID: ", vminfo.VmdkScope)
+					fmt.Println("PVmscope: ", vminfo.VmdkScope)
 					fmt.Println("PvmName : ", vminfo.VmdkId)
 					vmdkmap.SourceVmdkID = vminfo.VmdkId
+					fmt.Println("PvmvmdkId : ", vminfo.VmdkId)
+					vmdkmapList[i] = vmdkmap
 				}
 				if vmdkmap.TargetScope == vminfo.VmdkScope {
-					fmt.Println("PVmUUID: ", vminfo.VmdkScope)
-					fmt.Println("PvmName : ", vminfo.VmdkId)
+					fmt.Println("TVmscope: ", vminfo.VmdkScope)
+					fmt.Println("TvmName : ", vminfo.VmdkId)
 					vmdkmap.TargetVmdkID = vminfo.VmdkId
+					fmt.Println("TvmvmdkId : ", vminfo.VmdkId)
+
+					vmdkmapList[i] = vmdkmap
 				}
 			}
 
 		}
-		fmt.Println("Failover Step6: Triggering failover ")
+		fmt.Println("Failover Step5: Triggering failover ")
+
+		//Step 6: PowerOff all VMs
+		for _, vmdkmap := range vmdkmapList {
+			VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, false)
+		}
 
 		//Step 7: Trigger Failover
 		InitiateFailover(VesAuth, vmdkmapList)
-		fmt.Println("Failover Step7: Powering on VM ")
+		fmt.Println("Failover Step6: Powering on VM ")
 
 		//Step 8: PowerOn all VMs
 		for _, vmdkmap := range vmdkmapList {

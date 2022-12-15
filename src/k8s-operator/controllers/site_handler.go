@@ -469,10 +469,15 @@ func GetVmdks(vm mo.VirtualMachine, dss []mo.Datastore) ([]draasv1alpha1.Disk, b
 				GetVirtualDeviceFileBackingInfo().Datastore.Value
 			sizeMB := disk.CapacityInKB / 1024
 			thinProvisioned := *(disk.Backing.(*types.VirtualDiskFlatVer2BackingInfo).ThinProvisioned)
-			unitNumber := disk.UnitNumber
+			//unitNumber := *disk.UnitNumber
+			unitNumber := *(disk.GetVirtualDevice().UnitNumber)
 			label := labelPattern.FindString(fileName)[1:]
 			var filterName string
 			absPath := GetAbsPath(dss, fileName)
+			//fmt.Println("--- dss: ", dss)
+			//fmt.Println("--- filename: ", fileName)
+			//fmt.Println("\n--- unitNumber *disk.UnitNumber: ", *disk.UnitNumber)
+			//fmt.Println("--- unitNumber disk.GetVirtualDevice().UnitN umber: ", *(disk.GetVirtualDevice().UnitNumber))
 
 			//iofilters := disk.Iofilter
 			for _, iof := range disk.Iofilter {
@@ -491,7 +496,7 @@ func GetVmdks(vm mo.VirtualMachine, dss []mo.Datastore) ([]draasv1alpha1.Disk, b
 				IofilterName:    filterName,
 				ThinProvisioned: thinProvisioned,
 				SizeMB:          sizeMB,
-				UnitNumber:      *unitNumber,
+				UnitNumber:      unitNumber,
 				Label:           label,
 				VmId:            vm.Summary.Vm.Value,
 				AbsPath:         absPath,
