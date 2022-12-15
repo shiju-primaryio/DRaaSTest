@@ -458,38 +458,38 @@ func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) 
 func AddStorage(vmInfo draasv1alpha1.VMStatus) (object.VirtualDeviceList, error) {
 	var devices object.VirtualDeviceList
 
-	for _, disk := range vmInfo.Disks {
-		if vmInfo.Controller != "ide" {
-			if vmInfo.Controller == "nvme" {
-				nvme, err := devices.CreateNVMEController()
-				if err != nil {
-					return nil, err
-				}
-
-				devices = append(devices, nvme)
-				vmInfo.Controller = devices.Name(nvme)
-			} else {
-				scsi, err := devices.CreateSCSIController("")
-				if err != nil {
-					return nil, err
-				}
-
-				devices = append(devices, scsi)
-				vmInfo.Controller = devices.Name(scsi)
-			}
-		}
-
-		//TODO
-		/* // If controller is specified to be IDE or if an ISO is specified, add IDE controller.
-		if vmReq.Controller == "ide" || cmd.iso != "" {
-			ide, err := devices.CreateIDEController()
+	if vmInfo.Controller != "ide" {
+		if vmInfo.Controller == "nvme" {
+			nvme, err := devices.CreateNVMEController()
 			if err != nil {
 				return nil, err
 			}
 
-			devices = append(devices, ide)
-		} */
+			devices = append(devices, nvme)
+			vmInfo.Controller = devices.Name(nvme)
+		} else {
+			scsi, err := devices.CreateSCSIController("")
+			if err != nil {
+				return nil, err
+			}
 
+			devices = append(devices, scsi)
+			vmInfo.Controller = devices.Name(scsi)
+		}
+	}
+
+	//TODO
+	/* // If controller is specified to be IDE or if an ISO is specified, add IDE controller.
+	if vmReq.Controller == "ide" || cmd.iso != "" {
+		ide, err := devices.CreateIDEController()
+		if err != nil {
+			return nil, err
+		}
+
+		devices = append(devices, ide)
+	} */
+
+	for _, disk := range vmInfo.Disks {
 		controller, err := devices.FindDiskController(vmInfo.Controller)
 		if err != nil {
 			return nil, err
