@@ -1,10 +1,14 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"net/url"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
@@ -63,6 +67,8 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 	var vmUuidList []string
 	for _, vmDet := range ProtectVMUUIDList {
 		vmUuid = vmDet.VmUuid
+		fmt.Println("Trying to attach/detach policy for vmuuid:  ", vmUuid)
+
 		policyAttach = vmDet.IsPolicyAttach
 		if policyAttach {
 			vmUuidList = append(vmUuidList, vmUuid)
@@ -216,6 +222,74 @@ func GetPolicyList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.PolicyDet
 	return policyList, err
 }
 
+func GetVMDKsFromPostGresDB(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) (draasv1alpha1.VMDKListFromPostGresDResponse, error) {
+	//vesauth, _ := ctx.Request.Cookie("VESauth")
+	var result draasv1alpha1.VMDKListFromPostGresDResponse
+
+	url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/vmdks"
+	req2, _ := http.NewRequest("GET", url2, nil)
+	req2.Header.Add("content-type", "application/json")
+	req2.Header.Add("cache-control", "no-cache")
+	req2.Header.Add("X-VES-Authorization", VesAuth)
+	res2, err2 := http.DefaultClient.Do(req2)
+	if err2 != nil {
+		fmt.Println(err2)
+	} else {
+		defer res2.Body.Close()
+		body2, _ := ioutil.ReadAll(res2.Body)
+		if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
+			fmt.Println(err)
+			fmt.Println("Can not unmarshal JSON")
+			return result, err
+		}
+		fmt.Println(result.Data)
+	}
+	return result, nil
+
+}
+
+type FailoverResponse struct {
+	Data struct {
+		Id           string `json:"id"`
+		SourceVMDKId string `json:"vmdk_id"`
+		TargetVMDKId string `json:"new_vmdk_id"`
+	} `json:"data"`
+}
+
+func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+
+	for _, vmdkmap := range vmdkmapList {
+
+		//vesauth, _ := ctx.Request.Cookie("VESauth")
+		url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/failovers"
+
+		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
+		jsonData := map[string]string{"vmdk_id": vmdkmap.SourceVmdkID, "new_vmdk_id": vmdkmap.TargetVmdkID}
+		jsonStr, _ := json.Marshal(jsonData)
+
+		req2, _ := http.NewRequest("POST", url2, bytes.NewBuffer(jsonStr))
+		req2.Header.Add("content-type", "application/json")
+		req2.Header.Add("cache-control", "no-cache")
+		req2.Header.Add("X-VES-Authorization", VesAuth)
+		res2, err2 := http.DefaultClient.Do(req2)
+		if err2 != nil {
+			fmt.Println(err2)
+		} else {
+			defer res2.Body.Close()
+			body2, _ := ioutil.ReadAll(res2.Body)
+			var result FailoverResponse
+			if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
+				fmt.Println(err)
+				fmt.Println("Can not unmarshal JSON")
+			}
+			fmt.Println("Failover Id", result.Data.Id)
+			vmdkmap.FailoverTriggerID = result.Data.Id
+		}
+	}
+	return nil
+
+}
+
 func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) (string, error) {
 	var devices object.VirtualDeviceList
 
@@ -346,6 +420,36 @@ func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) 
 				return "", err
 			}
 		}
+	}
+
+	fmt.Println("Powering ON VM... ")
+
+	// PowerON VM
+	task, err = vm.PowerOn(ctx)
+	if err != nil {
+		fmt.Printf("Failed to change power state of VM.")
+		//return "", err
+	}
+
+	_, err1 := task.WaitForResult(ctx, nil)
+	if err1 != nil {
+		fmt.Printf("VM change power state process failed: %v", err)
+		return "", err
+	}
+
+	fmt.Println("Powering OFF VM... ")
+
+	// PowerOFF VM
+	task, err = vm.PowerOff(ctx)
+	if err != nil {
+		fmt.Printf("Failed to change power state of VM.")
+		//return "", err
+	}
+
+	_, err1 = task.WaitForResult(ctx, nil)
+	if err1 != nil {
+		fmt.Printf("VM change power state process failed: %v", err)
+		return "", err
 	}
 
 	return "", err

@@ -35,7 +35,26 @@ type AppDRUnitSpec struct {
 	VCenter           VCenterSpec       `json:"vCenter,omitempty"`
 	// Application will run on RemoteSite when trigger failover is set to true.
 	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
-	TriggerFailover bool `json:"triggerFailover,omitempty"`
+	TriggerFailover bool   `json:"triggerFailover,omitempty"`
+	VesToken        string `json:"vesToken,omitempty"`
+}
+
+/*
+type VMDKFromPostGresDResponse struct {
+	VMList []struct {
+		VmdkId    string `json:"id"`
+		VmdkScope string `json:"scope"`
+	} `json:"data"`
+}
+*/
+
+type VMDKListFromPostGresDResponse struct {
+	Data []VMDKFromPostGresDResponse `json:"data,omitempty"`
+}
+
+type VMDKFromPostGresDResponse struct {
+	VmdkId    string `json:"id"`
+	VmdkScope string `json:"scope"`
 }
 
 /*
@@ -48,6 +67,23 @@ type AppDRUnitSpec struct {
 		Password string `json:"password,omitempty"`
 	}
 */
+type TriggerFailoverVmdkMapping struct {
+	VmName            string `json:"vmName,omitempty"`
+	UnitNumber        int    `json:"unitNumber"`
+	SourceVmdkID      string `json:"sourceVmdkID,omitempty"`
+	TargetVmdkID      string `json:"targetVmdkID,omitempty"`
+	SourceVmUUID      string `json:"sourceVmUUID,omitempty"`
+	TargetVmUUID      string `json:"targetVmUUID,omitempty"`
+	SourceScope       string `json:"sourceScope,omitempty"`
+	TargetScope       string `json:"targetScope,omitempty"`
+	SentBlocks        string `json:"sentBlocks,omitempty"`
+	TotalBlocks       string `json:"totalBlocks,omitempty"`
+	SentCT            string `json:"sentCT,omitempty"`
+	Ack               string `json:"ack,omitempty"`
+	ActiveFailover    bool   `json:"activeFailover"`
+	FailoverTriggerID string `json:"failoverTriggerID"`
+}
+
 type VmPolicyRequest struct {
 	VmUuid         string `json:"vmUuid,omitempty"`
 	IsPolicyAttach bool   `json:"isPolicyAttach,omitempty"`

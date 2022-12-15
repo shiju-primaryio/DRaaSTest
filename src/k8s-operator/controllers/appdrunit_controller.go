@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -57,6 +58,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	reqLogger.Info("Reconciling appdr_unit Config")
 
 	var err error
+
 	// Fetch the AppDRUnit instance
 	instance := &draasv1alpha1.AppDRUnit{}
 	err = r.Client.Get(context.TODO(), req.NamespacedName, instance)
@@ -71,6 +73,10 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	fmt.Println("\n Printing info..Name: ", instance.Name)
+	fmt.Println("\n Printing info..Req.NamespaceName: ", req.Namespace)
+	fmt.Println("\n Printing info..req.Name: ", req.Name)
+	fmt.Println("\n Printing info..Req.NamespacedName: ", req.NamespacedName)
 
 	defer func() {
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
@@ -90,6 +96,147 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		return reconcile.Result{}, nil
+	}
+
+	//rkReq reconsile. .Request.NamespacedName
+
+	var ns1 types.NamespacedName //:= {Name: "site-dr-sample", Namespace: "k8s-operator-system"}
+	ns1.Name = "site-dr-sample"
+	ns1.Namespace = "k8s-operator-system"
+	// NamespacedName{Name: "site-dr-sample", Namespace: "k8s-operator-system"}
+	//rkNameSpace  req.ctrl.reconcile. NamespacedName := {"k8s-operator-system","site-dr-sample"};
+	//ctrl.Request remoteSiteRequestctx := {};
+
+	//RemoteSite_NamedSpacedName := "k8s-operator-system/site-dr-sample"
+	//Fetch Site Object
+	instance_dr := &draasv1alpha1.Site{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "site-dr-sample", Namespace: "k8s-operator-system"}, instance_dr)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	var vcenter_dr draasv1alpha1.VCenterSpec
+	vcenter_dr = instance_dr.Spec.VCenter
+	fmt.Println("remote vcenter: ", vcenter_dr.IP)
+	fmt.Println("remote username : ", vcenter_dr.UserName)
+
+	VesAuth := instance.Spec.VesToken
+
+	//instance.Spec.VCenter
+
+	if instance.Spec.TriggerFailover {
+		fmt.Println("Failover Step1 ")
+
+		//Step 1: Create VM Infrastructure, make sure VM is Powered Off
+		instance.Status.FailoverStatus = "Failover_Infrastructure_Creation_Started"
+		for _, vm := range instance.Status.ProtectedVmList {
+			fmt.Println("Creating VM : ", vm.Name)
+			CreateVM(vcenter_dr, vm)
+		}
+		fmt.Println("Failover Step2 ")
+		//createVMInfrastructure()
+		instance.Status.FailoverStatus = "Failover_Infrastructure_Creation_Completed"
+		//Step 2: Make all VMs powered OFF
+
+		//Step 3: Attach policy if not already attached
+		//ChangePolicyState(vcenter_dr, [])
+		//Step 4: Fetch Information of VMs from FailedOver vCenter
+
+		//Step 5: Create  Structure for Trigger Failover
+		var vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping
+
+		//Step 6: add source vmdk ids from scope
+		for _, vm := range instance.Status.ProtectedVmList {
+			var vmdkmap draasv1alpha1.TriggerFailoverVmdkMapping
+			vmdkmap.VmName = vm.Name
+			vmdkmap.SourceVmUUID = vm.VmUuid
+			for _, dev := range vm.Disks {
+				vmdkmap.UnitNumber = int(dev.UnitNumber)
+				vmdkmap.SourceScope = dev.Label
+			}
+			//vmdkmap.SourceScope = vm.Disks
+			fmt.Println("PVmUUID: ", vm.VmUuid)
+			fmt.Println("PvmName : ", vm.Name)
+			fmt.Println("Source scope : ", vmdkmap.SourceScope)
+
+			vmdkmapList = append(vmdkmapList, vmdkmap)
+		}
+		fmt.Println("Failover Step3 ")
+
+		var vmPolicyRequestList []draasv1alpha1.VmPolicyRequest
+		var vmPolicyRequest draasv1alpha1.VmPolicyRequest
+
+		for _, vm := range instance_dr.Status.VmList {
+			for _, vmdkmap := range vmdkmapList {
+				vmdkmap.TargetVmUUID = vm.VmUuid
+
+				if vmdkmap.VmName == vm.Name {
+
+					vmPolicyRequest.VmUuid = vm.VmUuid
+					vmPolicyRequest.IsPolicyAttach = true
+					vmPolicyRequestList = append(vmPolicyRequestList, vmPolicyRequest)
+
+					fmt.Println("PVmUUID: ", vm.VmUuid)
+					fmt.Println("PvmName : ", vm.Name)
+					vmdkmap.TargetScope = vm.VmUuid
+					for _, dev := range vm.Disks {
+						if vmdkmap.UnitNumber == int(dev.UnitNumber) {
+							vmdkmap.TargetScope = dev.Label
+							fmt.Println("Source scope : ", vmdkmap.SourceScope)
+						}
+					}
+				}
+			}
+		}
+		fmt.Println("Failover Step4: Calling attach policy ")
+		for _, vminfo := range vmPolicyRequestList {
+			fmt.Println("Failover: id  ", vminfo.VmUuid)
+		}
+		// Attach Policy
+		//ChangePolicyState(vcenter_dr, vmPolicyRequestList)
+		fmt.Println("Failover Step5 ")
+
+		VMDKListFromPostGresDResponse, err := GetVMDKsFromPostGresDB(VesAuth, vmdkmapList)
+		for _, vminfo := range VMDKListFromPostGresDResponse.Data {
+			for _, vmdkmap := range vmdkmapList {
+				if vmdkmap.SourceScope == vminfo.VmdkScope {
+					fmt.Println("PVmUUID: ", vminfo.VmdkScope)
+					fmt.Println("PvmName : ", vminfo.VmdkId)
+					vmdkmap.SourceVmdkID = vminfo.VmdkId
+				}
+				if vmdkmap.TargetScope == vminfo.VmdkScope {
+					fmt.Println("PVmUUID: ", vminfo.VmdkScope)
+					fmt.Println("PvmName : ", vminfo.VmdkId)
+					vmdkmap.TargetVmdkID = vminfo.VmdkId
+				}
+			}
+
+		}
+		fmt.Println("Failover Step6: Triggering failover ")
+
+		//Step 7: Trigger Failover
+		InitiateFailover(VesAuth, vmdkmapList)
+		fmt.Println("Failover Step7: Powering on VM ")
+
+		//Step 8: PowerOn all VMs
+		for _, vmdkmap := range vmdkmapList {
+			VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, true)
+		}
+
+		instance.Spec.TriggerFailover = false
+		//update Spec
+		if err = r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update", "Site", instance.Name)
+			return reconcile.Result{}, err
+		}
+
 	}
 
 	instance.Status.FailoverStatus = "Failover_Not_Started"
