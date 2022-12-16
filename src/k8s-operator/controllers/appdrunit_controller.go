@@ -283,12 +283,56 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	var vmDetailList []draasv1alpha1.VMStatus
 	if instance.Spec.ProtectVMUUIDList != nil {
+		//Case 1: Protect all VM's
+		if instance.Status.ProtectedVmList == nil {
+			vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, instance.Spec.ProtectVMUUIDList)
+			if err != nil {
+				fmt.Println("Failed to attach VM .......", err)
+			}
+		} else {
+			var modifyProtectVmReq []draasv1alpha1.VmPolicyRequest
 
-		vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, instance.Spec.ProtectVMUUIDList)
-		if err != nil {
-			//reqLogger.Error(err, "Failed to change state of VM.")
-			fmt.Println("Failed to attach VM .......", err)
+			//Case 2: Protect-Unprotect few Vm's
+			var bAlreadyProtectedVMFound bool
+			bAlreadyProtectedVMFound = false
+			if instance.Spec.ProtectVMUUIDList != nil {
+				for _, statusVM := range instance.Status.ProtectedVmList {
+					for _, specVM := range instance.Spec.ProtectVMUUIDList {
+						if statusVM.VmUuid == specVM.VmUuid {
+							bAlreadyProtectedVMFound = true
+							break
+						}
+					}
+					//VM is already protected, but user wants to unprotect it
+					if !bAlreadyProtectedVMFound {
+						modifyProtectVmReq = append(modifyProtectVmReq, draasv1alpha1.VmPolicyRequest{VmUuid: statusVM.VmUuid, IsPolicyAttach: false})
+						//unProtectVmUuidlist = append(unProtectVmUuidlist, specVM.VmUuid)
+					}
+				}
+
+				for _, specVM := range instance.Spec.ProtectVMUUIDList {
+					for _, statusVM := range instance.Status.ProtectedVmList {
+						if statusVM.VmUuid == specVM.VmUuid {
+							bAlreadyProtectedVMFound = true
+							break
+						}
+					}
+					//VM is not protected, but user wants to protect it
+					if !bAlreadyProtectedVMFound {
+						modifyProtectVmReq = append(modifyProtectVmReq, specVM)
+					}
+				}
+
+			} else {
+				//Case 3: Unprotect All VM's
+				for _, specVM := range instance.Spec.ProtectVMUUIDList {
+					modifyProtectVmReq = append(modifyProtectVmReq, draasv1alpha1.VmPolicyRequest{VmUuid: specVM.VmUuid, IsPolicyAttach: false})
+				}
+			}
+
+			vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, modifyProtectVmReq)
 		}
+
 		/*
 			for _, vm := range vmDetailList {
 				fmt.Println("VmUUID: ", vm.VmUuid)
