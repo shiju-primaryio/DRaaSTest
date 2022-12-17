@@ -29,32 +29,27 @@ type AppDRUnitSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	Site              string            `json:"site,omitempty"`
-	RemoteSite        string            `json:"remoteSite,omitempty"`
+	PeerSite          string            `json:"peerSite,omitempty"`
 	ProtectVMUUIDList []VmPolicyRequest `json:"protectvmuuidList,omitempty"`
 	Description       string            `json:"description,omitempty"`
 	VCenter           VCenterSpec       `json:"vCenter,omitempty"`
 	// Application will run on RemoteSite when trigger failover is set to true.
 	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
 	TriggerFailover bool   `json:"triggerFailover,omitempty"`
+	TriggerFailback bool   `json:"triggerFailback,omitempty"`
 	VesToken        string `json:"vesToken,omitempty"`
 }
-
-/*
-type VMDKFromPostGresDResponse struct {
-	VMList []struct {
-		VmdkId    string `json:"id"`
-		VmdkScope string `json:"scope"`
-	} `json:"data"`
-}
-*/
 
 type VMDKListFromPostGresDResponse struct {
 	Data []VMDKFromPostGresDResponse `json:"data,omitempty"`
 }
 
 type VMDKFromPostGresDResponse struct {
-	VmdkId    string `json:"id"`
-	VmdkScope string `json:"scope"`
+	VmdkId         string `json:"id"`
+	VmdkScope      string `json:"scope"`
+	ReceivedIOs    string `json:"receivedIOs"`
+	ReceivedBlocks string `json:"receivedBlocks"`
+	TotalBlocks    string `json:"totalBlocks"`
 }
 
 /*
@@ -95,11 +90,31 @@ type VmPolicyRequest struct {
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Site            string     `json:"site,omitempty"`
-	ProtectedVmList []VMStatus `json:"protectedVmList,omitempty"`
-	RemoteSite      string     `json:"remoteSite,omitempty"`
+	Site                   string                       `json:"site,omitempty"`
+	ProtectedVmList        []VMStatus                   `json:"protectedVmList,omitempty"`
+	PeerSite               string                       `json:"peerSite,omitempty"`
+	FailoverVmdkListStatus []TriggerFailoverVmdkMapping `json:"failoverVmdkListStatus,omitempty"`
+	FailoverStatus         FailoverStatus               `json:"failoverStatus,omitempty"`
+	FailbackStatus         FailoverStatus               `json:"failbackStatus,omitempty"`
+}
 
-	FailoverStatus string `json:"failoverStatus,omitempty"`
+/*
+const (
+
+	RECOVERY_ACTIVITY_NOT_STARTED   = "NOT_STARTED"
+	RECOVERY_ACTIVITY_STARTED       = "STARTED"
+	RECOVERY_ACTIVITY_IN_PROGRESS   = "IN_PROGRESS"
+	RECOVERY_ACTIVITY_COMPLETED     = "COMPLETED"
+	RECOVERY_ACTIVITY_ERROR_OCCURED = "ERROR_OCCURED"
+
+)
+*/
+type FailoverStatus struct {
+	InfrastructureStatus  string `json:"infrastructureStatus"`
+	PowerOffStatus        string `json:"powerOffStatus"`
+	RehydrationStatus     string `json:"rehydrationStatus"`
+	PowerOnStatus         string `json:"powerOnStatus"`
+	OverallFailoverStatus string `json:"overallFailoverStatus"`
 }
 
 //+kubebuilder:object:root=true

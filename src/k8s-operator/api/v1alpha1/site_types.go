@@ -116,6 +116,9 @@ type Disk struct {
 	Label           string `json:"label,omitempty"`
 	IofilterName    string `json:"iofilter_name"`
 	AbsPath         string `json:"abs_path"`
+	ReceivedIOs     string `json:"receivedIOs,omitempty"`
+	ReceivedBlocks  string `json:"receivedBlocks,omitempty"`
+	TotalBlocks     string `json:"totalBlocks,omitempty"`
 }
 
 type ErrorField struct {

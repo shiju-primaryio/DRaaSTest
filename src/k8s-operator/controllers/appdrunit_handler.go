@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strings"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
 	"github.com/vmware/govmomi"
@@ -67,10 +68,10 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 	var vmUuidList []string
 	for _, vmDet := range ProtectVMUUIDList {
 		vmUuid = vmDet.VmUuid
-		fmt.Println("Trying to attach/detach policy for vmuuid:  ", vmUuid)
 
 		policyAttach = vmDet.IsPolicyAttach
 		if policyAttach {
+			fmt.Println("Trying to attach policy for vmuuid:  ", vmUuid)
 			vmUuidList = append(vmUuidList, vmUuid)
 		}
 		vmObj, err := GetVmObject(c.Client, vmUuid)
@@ -85,6 +86,7 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 			return VmDetails, err
 		}
 
+		bPolicyIsAlreadyAttached := false
 		for _, device := range deviceList {
 			switch disk := device.(type) {
 			case *types.VirtualDisk:
@@ -101,7 +103,16 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 						err = errors.New("policy with given name not availabe at vCenter")
 						return VmDetails, err
 					}
-
+					for _, iof := range disk.Iofilter {
+						if strings.Contains(iof, "primaryio") {
+							fmt.Println("Policy is already attached to VMDK of vm:", vmObj.Name())
+							bPolicyIsAlreadyAttached = true
+							break
+						}
+					}
+					if bPolicyIsAlreadyAttached {
+						break
+					}
 					config = &types.VirtualDeviceConfigSpec{
 						Device:    disk,
 						Operation: types.VirtualDeviceConfigSpecOperationEdit,
@@ -141,10 +152,13 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 		}
 	}
 
-	vmList, err := getVmList(vcenter, vmUuidList)
-	if err != nil {
-		fmt.Println("Failed to fetch VM list", err)
-		return VmDetails, err
+	if len(vmUuidList) != 0 {
+		vmList, err := getVmList(vcenter, vmUuidList)
+		if err != nil {
+			fmt.Println("Failed to fetch VM list", err)
+			return VmDetails, err
+		}
+		return vmList, nil
 	}
 
 	/*
@@ -156,7 +170,7 @@ func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []dr
 		}
 	*/
 	//fmt.Println("Storage policy state changed successfully to VM : ", vmObj.Name())
-	return vmList, nil
+	return VmDetails, nil
 }
 
 func GetPolicy(PolicyName string, vcenter draasv1alpha1.VCenterSpec) (draasv1alpha1.PolicyDetails, error) {
@@ -240,7 +254,9 @@ func GetVMDKsFromPostGresDB(VesAuth string, vmdkmapList []draasv1alpha1.TriggerF
 	req2.Header.Add("cache-control", "no-cache")
 	req2.Header.Add("X-VES-Authorization", VesAuth)
 
-	fmt.Println("Request PHP API", req2)
+	fmt.Println("\nRequest PHP API URL", url2)
+
+	fmt.Println("\nRequest PHP API", req2)
 
 	res2, err2 := http.DefaultClient.Do(req2)
 	if err2 != nil {
@@ -264,12 +280,17 @@ type FailoverResponse struct {
 		Id           string `json:"id"`
 		SourceVMDKId string `json:"vmdk_id"`
 		TargetVMDKId string `json:"new_vmdk_id"`
+		Ack          string `json:"ack"`
+		Active       bool   `json:"active"`
+		Sent_ct      string `json:"sent_ct"`
+		Sentblocks   string `json:"sentblocks"`
+		TotalBlocks  string `json:"totalBlocks"`
 	} `json:"data"`
 }
 
 func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 
-	for _, vmdkmap := range vmdkmapList {
+	for i, vmdkmap := range vmdkmapList {
 
 		fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
 		fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
@@ -305,8 +326,134 @@ func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailove
 			}
 			fmt.Println("Failover Id (vmdkmap.FailoverTriggerID) created by Failover API", result.Data.Id)
 			vmdkmap.FailoverTriggerID = result.Data.Id
+			vmdkmap.Ack = result.Data.Ack
+			vmdkmap.ActiveFailover = result.Data.Active
+			vmdkmap.SentCT = result.Data.Sent_ct
+			vmdkmap.SentBlocks = result.Data.Sentblocks
+			vmdkmap.TotalBlocks = result.Data.TotalBlocks
+
+			vmdkmapList[i] = vmdkmap
 		}
 	}
+	return nil
+
+}
+
+func WaitForActiveBitTobeSet(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+	var bRetryActiveBit bool
+
+	bRetryActiveBit = true
+	for bRetryActiveBit {
+
+		for i, vmdkmap := range vmdkmapList {
+
+			fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
+			fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+
+			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") || (vmdkmap.ActiveFailover) {
+				fmt.Println("Continuing")
+				continue
+			}
+			//FailoverId string
+			FailoverId := vmdkmap.FailoverTriggerID
+			//vesauth, _ := ctx.Request.Cookie("VESauth")
+			url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/failovers/"
+
+			url2 += FailoverId
+			//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
+			//jsonData := map[string]string{"vmdk_id": vmdkmap.SourceVmdkID, "new_vmdk_id": vmdkmap.TargetVmdkID}
+			//jsonStr, _ := json.Marshal(jsonData)
+
+			req2, _ := http.NewRequest("GET", url2, nil)
+			req2.Header.Add("content-type", "application/json")
+			req2.Header.Add("cache-control", "no-cache")
+			req2.Header.Add("X-VES-Authorization", VesAuth)
+
+			fmt.Println("Request PHP API", req2)
+
+			res2, err2 := http.DefaultClient.Do(req2)
+			if err2 != nil {
+				fmt.Println(err2)
+			} else {
+				defer res2.Body.Close()
+				body2, _ := ioutil.ReadAll(res2.Body)
+				var result FailoverResponse
+				if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
+					fmt.Println(err)
+					fmt.Println("Can not unmarshal JSON")
+				}
+				fmt.Println("Failover API: Failover Id : ", result.Data.Id)
+				vmdkmap.FailoverTriggerID = result.Data.Id
+				vmdkmap.Ack = result.Data.Ack
+				vmdkmap.ActiveFailover = result.Data.Active
+				if !vmdkmap.ActiveFailover {
+					bRetryActiveBit = false
+					fmt.Println("Failover API: Active bit is false for failover ID : ", result.Data.Id)
+				}
+				fmt.Println("Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
+				vmdkmap.SentCT = result.Data.Sent_ct
+				vmdkmap.SentBlocks = result.Data.Sentblocks
+				vmdkmap.TotalBlocks = result.Data.TotalBlocks
+
+				vmdkmapList[i] = vmdkmap
+			}
+		}
+	}
+	return nil
+}
+
+func GetFailoverStatus(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+
+	for i, vmdkmap := range vmdkmapList {
+
+		fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
+		fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+
+		if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
+			fmt.Println("Continuing")
+			continue
+		}
+		//FailoverId string
+		FailoverId := vmdkmap.FailoverTriggerID
+		//vesauth, _ := ctx.Request.Cookie("VESauth")
+		url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/failovers/"
+
+		url2 += FailoverId
+		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
+		//jsonData := map[string]string{"vmdk_id": vmdkmap.SourceVmdkID, "new_vmdk_id": vmdkmap.TargetVmdkID}
+		//jsonStr, _ := json.Marshal(jsonData)
+
+		req2, _ := http.NewRequest("GET", url2, nil)
+		req2.Header.Add("content-type", "application/json")
+		req2.Header.Add("cache-control", "no-cache")
+		req2.Header.Add("X-VES-Authorization", VesAuth)
+
+		fmt.Println("Request PHP API", req2)
+
+		res2, err2 := http.DefaultClient.Do(req2)
+		if err2 != nil {
+			fmt.Println(err2)
+		} else {
+			defer res2.Body.Close()
+			body2, _ := ioutil.ReadAll(res2.Body)
+			var result FailoverResponse
+			if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
+				fmt.Println(err)
+				fmt.Println("Can not unmarshal JSON")
+			}
+			fmt.Println("Failover API: Failover Id : ", result.Data.Id)
+			vmdkmap.FailoverTriggerID = result.Data.Id
+			vmdkmap.Ack = result.Data.Ack
+			vmdkmap.ActiveFailover = result.Data.Active
+			fmt.Println("Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
+			vmdkmap.SentCT = result.Data.Sent_ct
+			vmdkmap.SentBlocks = result.Data.Sentblocks
+			vmdkmap.TotalBlocks = result.Data.TotalBlocks
+
+			vmdkmapList[i] = vmdkmap
+		}
+	}
+
 	return nil
 
 }

@@ -37,6 +37,12 @@ type AppDRUnitReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+const RECOVERY_ACTIVITY_NOT_STARTED string = "NOT_STARTED"
+const RECOVERY_ACTIVITY_STARTED string = "STARTED"
+const RECOVERY_ACTIVITY_IN_PROGRESS string = "IN_PROGRESS"
+const RECOVERY_ACTIVITY_COMPLETED string = "COMPLETED"
+const RECOVERY_ACTIVITY_ERROR_OCCURED string = "ERROR_OCCURED"
+
 //+kubebuilder:rbac:groups=draas.primaryio.com,resources=appdrunits,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=draas.primaryio.com,resources=appdrunits/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=draas.primaryio.com,resources=appdrunits/finalizers,verbs=update
@@ -73,10 +79,13 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	fmt.Println("\n Printing info..Name: ", instance.Name)
-	fmt.Println("\n Printing info..Req.NamespaceName: ", req.Namespace)
-	fmt.Println("\n Printing info..req.Name: ", req.Name)
-	fmt.Println("\n Printing info..Req.NamespacedName: ", req.NamespacedName)
+
+	/*
+		fmt.Println("\n Printing info..Name: ", instance.Name)
+		fmt.Println("\n Printing info..Req.NamespaceName: ", req.Namespace)
+		fmt.Println("\n Printing info..req.Name: ", req.Name)
+		fmt.Println("\n Printing info..Req.NamespacedName: ", req.NamespacedName)
+	*/
 
 	defer func() {
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
@@ -98,61 +107,77 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, nil
 	}
 
-	//rkReq reconsile. .Request.NamespacedName
+	var vcenter_dr draasv1alpha1.VCenterSpec
+	var instance_dr *draasv1alpha1.Site
 
-	var ns1 types.NamespacedName //:= {Name: "site-dr-sample", Namespace: "k8s-operator-system"}
-	ns1.Name = "site-dr-sample"
-	ns1.Namespace = "k8s-operator-system"
-	// NamespacedName{Name: "site-dr-sample", Namespace: "k8s-operator-system"}
-	//rkNameSpace  req.ctrl.reconcile. NamespacedName := {"k8s-operator-system","site-dr-sample"};
-	//ctrl.Request remoteSiteRequestctx := {};
-
-	//RemoteSite_NamedSpacedName := "k8s-operator-system/site-dr-sample"
-	//Fetch Site Object
-	instance_dr := &draasv1alpha1.Site{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "site-dr-sample", Namespace: "k8s-operator-system"}, instance_dr)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
+	//instance.Spec.Site = "site-sample"
+	//instance.Spec.PeerSite = "site-dr-sample"
+	if instance.Spec.Site != "" {
+		instance.Status.Site = instance.Spec.Site
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
 		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
 	}
 
-	var vcenter_dr draasv1alpha1.VCenterSpec
-	vcenter_dr = instance_dr.Spec.VCenter
-	fmt.Println("remote vcenter: ", vcenter_dr.IP)
-	fmt.Println("remote username : ", vcenter_dr.UserName)
+	if instance.Spec.PeerSite != "" {
+		instance.Status.PeerSite = instance.Spec.PeerSite
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		//Fetch Peer Site Object
+		instance_dr = &draasv1alpha1.Site{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Status.PeerSite, Namespace: "k8s-operator-system"}, instance_dr)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Request object not found, could have been deleted after reconcile request.
+				// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+				// Return and don't requeue
+				return reconcile.Result{}, nil
+			}
+			// Error reading the object - requeue the request.
+			return reconcile.Result{}, err
+		}
+		vcenter_dr = instance_dr.Spec.VCenter
+		fmt.Println("remote vcenter: ", vcenter_dr.IP)
+		fmt.Println("remote username : ", vcenter_dr.UserName)
+	}
 
 	VesAuth := instance.Spec.VesToken
 
 	//instance.Spec.VCenter
 
-	if instance.Spec.TriggerFailover {
+	if (instance.Spec.TriggerFailover) && (instance_dr != nil) {
 		fmt.Println("Failover Step1 ")
 
+		//Update Status
+		instance.Status.FailoverStatus.OverallFailoverStatus = RECOVERY_ACTIVITY_STARTED
+		instance.Status.FailoverStatus.InfrastructureStatus = RECOVERY_ACTIVITY_STARTED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
 		//Step 1: Create VM Infrastructure, make sure VM is Powered Off
-		instance.Status.FailoverStatus = "Failover_Infrastructure_Creation_Started"
 		for _, vm := range instance.Status.ProtectedVmList {
 			fmt.Println("Creating VM : ", vm.Name)
 			CreateVM(vcenter_dr, vm)
 		}
-		fmt.Println("Failover Step2: Listing Source VMDKs Info.. ")
-		//createVMInfrastructure()
-		instance.Status.FailoverStatus = "Failover_Infrastructure_Creation_Completed"
-		//Step 2: Make all VMs powered OFF
 
-		//Step 3: Attach policy if not already attached
+		//Update Status
+		instance.Status.FailoverStatus.InfrastructureStatus = RECOVERY_ACTIVITY_COMPLETED
+		instance.Status.FailoverStatus.OverallFailoverStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		//Optional step: Attach policy if not already attached
 		//ChangePolicyState(vcenter_dr, [])
-		//Step 4: Fetch Information of VMs from FailedOver vCenter
 
-		//Step 5: Create  Structure for Trigger Failover
+		fmt.Println("Failover Step2: Listing Source VMDKs Info.. ")
+
 		var vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping
 
-		//Step 6: add source vmdk ids from scope
+		//Step 2: Add source vmdk ids from scope
 		for _, vm := range instance.Status.ProtectedVmList {
 			var vmdkmap draasv1alpha1.TriggerFailoverVmdkMapping
 			vmdkmap.VmName = vm.Name
@@ -172,9 +197,6 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		fmt.Println("Failover Step3: Listing Target VMDKs Info.. ")
 
-		//var vmPolicyRequestList []draasv1alpha1.VmPolicyRequest
-		//var vmPolicyRequest draasv1alpha1.VmPolicyRequest
-
 		//Add TargetVMDKUUID and Scope
 		// Fetch VMs from VCenter on Site Creation only
 		vmList, err := getVmList(instance_dr.Spec.VCenter, nil)
@@ -182,26 +204,19 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			reqLogger.Error(err, "Failed to fetch VM list")
 		}
 
-		//		for _, vm := range instance_dr.Status.VmList {
 		for _, vm := range vmList {
 			for i, vmdkmap := range vmdkmapList {
 				vmdkmap.TargetVmUUID = vm.VmUuid
 
 				if vmdkmap.VmName == vm.Name {
 
-					//vmPolicyRequest.VmUuid = vm.VmUuid
-					//vmPolicyRequest.IsPolicyAttach = true
-					//vmPolicyRequestList = append(vmPolicyRequestList, vmPolicyRequest)
-
 					fmt.Println("Target VmUUID: ", vm.VmUuid)
 					fmt.Println("Target vmName : ", vm.Name)
 					vmdkmap.TargetScope = vm.VmUuid
 
 					for _, dev := range vm.Disks {
-						fmt.Println("listing Unit number : ", dev.UnitNumber)
-						//if vmdkmap.UnitNumber == int(dev.UnitNumber) {
+						//Compare Label of VMDK
 						if vmdkmap.Label == dev.Label {
-							//fmt.Println("Target Unit number : ", vmdkmap.UnitNumber)
 
 							vmdkmap.TargetScope = dev.AbsPath
 							vmdkmapList[i] = vmdkmap
@@ -212,16 +227,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		/*
-			fmt.Println("Failover Step4: Calling attach policy ")
-			for _, vminfo := range vmPolicyRequestList {
-				fmt.Println("Failover: id  ", vminfo.VmUuid)
-			}
-			// Attach Policy
-			//ChangePolicyState(vcenter_dr, vmPolicyRequestList)
-			fmt.Println("Failover Step5 ")
-		*/
-		fmt.Println("Failover Step4: Calling  GetVMDKsFromPostGresDB..")
+		fmt.Println("Failover Step4: Calling  GetVMDKsFromPostGresDB to create map..")
 
 		VMDKListFromPostGresDResponse, err := GetVMDKsFromPostGresDB(VesAuth, vmdkmapList)
 		for _, vminfo := range VMDKListFromPostGresDResponse.Data {
@@ -248,106 +254,217 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 
 		}
-		fmt.Println("Failover Step5: Triggering failover ")
 
 		//Step 6: PowerOff all VMs
+
+		//Update Status : activity started
+		fmt.Println("Failover Step5: Powering off VMs.. ")
+		instance.Status.FailoverStatus.PowerOffStatus = RECOVERY_ACTIVITY_STARTED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
 		for _, vmdkmap := range vmdkmapList {
 			VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, false)
 		}
 
+		//Update Status : activity Completed
+		instance.Status.FailoverStatus.PowerOffStatus = RECOVERY_ACTIVITY_COMPLETED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
 		//Step 7: Trigger Failover
+		fmt.Println("Failover Step5: Triggering failover ")
+		instance.Status.FailoverStatus.RehydrationStatus = RECOVERY_ACTIVITY_STARTED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
 		InitiateFailover(VesAuth, vmdkmapList)
+
+		//Update Status : activity Completed
+		instance.Status.FailoverStatus.PowerOffStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+		instance.Status.FailoverVmdkListStatus = vmdkmapList
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		fmt.Println("Failover Step6: Waiting for Active bit to be set for all protected VMs ")
+		WaitForActiveBitTobeSet(VesAuth, instance.Status.FailoverVmdkListStatus)
+
 		fmt.Println("Failover Step6: Powering on VM ")
 
 		//Step 8: PowerOn all VMs
+		instance.Status.FailoverStatus.PowerOnStatus = RECOVERY_ACTIVITY_STARTED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
 		for _, vmdkmap := range vmdkmapList {
 			VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, true)
 		}
 
-		instance.Spec.TriggerFailover = false
+		instance.Status.FailoverStatus.PowerOnStatus = RECOVERY_ACTIVITY_COMPLETED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
 		//update Spec
+		instance.Spec.TriggerFailover = false
 		if err = r.Client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update", "Site", instance.Name)
 			return reconcile.Result{}, err
 		}
 
-	}
-
-	instance.Status.FailoverStatus = "Failover_Not_Started"
-	instance.Status.Site = "test"
-	instance.Status.RemoteSite = "test-dr"
-
-	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
-		reqLogger.Error(err, "Failed to update Site status")
-	}
-
-	var vmDetailList []draasv1alpha1.VMStatus
-	if instance.Spec.ProtectVMUUIDList != nil {
-		//Case 1: Protect all VM's
-		if instance.Status.ProtectedVmList == nil {
-			vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, instance.Spec.ProtectVMUUIDList)
-			if err != nil {
-				fmt.Println("Failed to attach VM .......", err)
-			}
-		} else {
-			var modifyProtectVmReq []draasv1alpha1.VmPolicyRequest
-
-			//Case 2: Protect-Unprotect few Vm's
-			var bAlreadyProtectedVMFound bool
-			bAlreadyProtectedVMFound = false
-			if instance.Spec.ProtectVMUUIDList != nil {
-				for _, statusVM := range instance.Status.ProtectedVmList {
-					for _, specVM := range instance.Spec.ProtectVMUUIDList {
-						if statusVM.VmUuid == specVM.VmUuid {
-							bAlreadyProtectedVMFound = true
-							break
-						}
-					}
-					//VM is already protected, but user wants to unprotect it
-					if !bAlreadyProtectedVMFound {
-						modifyProtectVmReq = append(modifyProtectVmReq, draasv1alpha1.VmPolicyRequest{VmUuid: statusVM.VmUuid, IsPolicyAttach: false})
-						//unProtectVmUuidlist = append(unProtectVmUuidlist, specVM.VmUuid)
-					}
-				}
-
-				for _, specVM := range instance.Spec.ProtectVMUUIDList {
-					for _, statusVM := range instance.Status.ProtectedVmList {
-						if statusVM.VmUuid == specVM.VmUuid {
-							bAlreadyProtectedVMFound = true
-							break
-						}
-					}
-					//VM is not protected, but user wants to protect it
-					if !bAlreadyProtectedVMFound {
-						modifyProtectVmReq = append(modifyProtectVmReq, specVM)
-					}
-				}
-
-			} else {
-				//Case 3: Unprotect All VM's
-				for _, specVM := range instance.Spec.ProtectVMUUIDList {
-					modifyProtectVmReq = append(modifyProtectVmReq, draasv1alpha1.VmPolicyRequest{VmUuid: specVM.VmUuid, IsPolicyAttach: false})
-				}
-			}
-
-			vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, modifyProtectVmReq)
-		}
-
-		/*
-			for _, vm := range vmDetailList {
-				fmt.Println("VmUUID: ", vm.VmUuid)
-				fmt.Println("vmName : ", vm.Name)
-			}
-		*/
-		instance.Status.ProtectedVmList = vmDetailList
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update Site status")
 		}
 
 	}
 
-	fmt.Println("Setting ProtectVMUUIDList to Nil .......")
-	instance.Spec.ProtectVMUUIDList = nil
+	if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+		reqLogger.Error(err, "Failed to update Site status")
+	}
+
+	if instance.Status.FailoverStatus.OverallFailoverStatus == RECOVERY_ACTIVITY_IN_PROGRESS {
+		fmt.Println("Adding GetFailoverStatus .......")
+
+		GetFailoverStatus(VesAuth, instance.Status.FailoverVmdkListStatus)
+	}
+
+	var vmDetailList []draasv1alpha1.VMStatus
+
+	//Case 1: Protect all VM's
+
+	if (instance.Status.ProtectedVmList == nil) && (instance.Spec.ProtectVMUUIDList != nil) {
+		fmt.Println("Case 1:  Protect all VMs  .......")
+
+		vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, instance.Spec.ProtectVMUUIDList)
+		if err != nil {
+			fmt.Println("Failed to attach VM .......", err)
+		}
+		instance.Status.ProtectedVmList = vmDetailList
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+	} else {
+		var modifyProtectVmReq []draasv1alpha1.VmPolicyRequest
+
+		//Case 2: Protect-Unprotect few Vm's
+		var bAlreadyProtectedVMFound bool
+		if instance.Spec.ProtectVMUUIDList != nil {
+			for _, statusVM := range instance.Status.ProtectedVmList {
+				bAlreadyProtectedVMFound = false
+				for _, specVM := range instance.Spec.ProtectVMUUIDList {
+					if statusVM.VmUuid == specVM.VmUuid {
+						bAlreadyProtectedVMFound = true
+						break
+					}
+				}
+				//VM is already protected, but user wants to unprotect it
+				if !bAlreadyProtectedVMFound {
+					fmt.Println("Case 2:  Unprotecting VM (status VM UUID) :", statusVM.VmUuid)
+
+					modifyProtectVmReq = append(modifyProtectVmReq, draasv1alpha1.VmPolicyRequest{VmUuid: statusVM.VmUuid, IsPolicyAttach: false})
+					//unProtectVmUuidlist = append(unProtectVmUuidlist, specVM.VmUuid)
+				}
+			}
+			for _, specVM := range instance.Spec.ProtectVMUUIDList {
+				bAlreadyProtectedVMFound = false
+				for _, statusVM := range instance.Status.ProtectedVmList {
+					if statusVM.VmUuid == specVM.VmUuid {
+						bAlreadyProtectedVMFound = true
+						break
+					}
+				}
+				//VM is not protected, but user wants to protect it
+				if !bAlreadyProtectedVMFound {
+					fmt.Println("Case 3:  Protecting VM (spec VM UUID) :", specVM.VmUuid)
+					modifyProtectVmReq = append(modifyProtectVmReq, specVM)
+				}
+			}
+
+		} else {
+			//Case 4: Unprotect All VM's
+			fmt.Println("Case 4:  UnProtect all VMs  .......")
+
+			for _, specVM := range instance.Spec.ProtectVMUUIDList {
+				modifyProtectVmReq = append(modifyProtectVmReq, draasv1alpha1.VmPolicyRequest{VmUuid: specVM.VmUuid, IsPolicyAttach: false})
+			}
+		}
+
+		if len(modifyProtectVmReq) != 0 {
+			fmt.Println("Length of ModifyVMProtect Request is: ", len(modifyProtectVmReq))
+
+			vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, modifyProtectVmReq)
+
+			for _, vmProtectReq := range modifyProtectVmReq {
+				if !vmProtectReq.IsPolicyAttach {
+					for i, vmStatusVM := range instance.Status.ProtectedVmList {
+						if vmStatusVM.VmUuid == vmProtectReq.VmUuid {
+							instance.Status.ProtectedVmList = append(instance.Status.ProtectedVmList[:i], instance.Status.ProtectedVmList[i+1:]...)
+						}
+					}
+				}
+			}
+			for _, vmDet := range vmDetailList {
+				instance.Status.ProtectedVmList = append(instance.Status.ProtectedVmList, vmDet)
+			}
+
+			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+				reqLogger.Error(err, "Failed to update Site status")
+			}
+		}
+
+	}
+
+	/*
+		for _, vm := range vmDetailList {
+			fmt.Println("VmUUID: ", vm.VmUuid)
+			fmt.Println("vmName : ", vm.Name)
+		}
+	*/
+
+	bUpdatedVMDKInfo := false
+	if instance.Status.ProtectedVmList != nil {
+		fmt.Println("Calling GetVMDKsFromPostGresDB to get received blocks/IO info.......")
+
+		VMDKListFromPostGresDResponse, _ := GetVMDKsFromPostGresDB(VesAuth, instance.Status.FailoverVmdkListStatus)
+		for _, vmdkmapinfo := range VMDKListFromPostGresDResponse.Data {
+			for i, vminfo := range instance.Status.ProtectedVmList {
+				for j, vmdkinfo := range vminfo.Disks {
+					fmt.Println("Checking VM .......", vminfo.Name)
+					if vmdkmapinfo.VmdkScope == vmdkinfo.AbsPath {
+						fmt.Println("Adding Received blocks .......")
+
+						vmdkinfo.ReceivedBlocks = vmdkmapinfo.ReceivedBlocks
+						vmdkinfo.ReceivedIOs = vmdkmapinfo.ReceivedIOs
+						vmdkinfo.TotalBlocks = vmdkmapinfo.TotalBlocks
+						bUpdatedVMDKInfo = true
+						break
+					}
+					if bUpdatedVMDKInfo {
+						vminfo.Disks[j] = vmdkinfo
+						break
+					}
+
+				}
+				if bUpdatedVMDKInfo {
+					instance.Status.ProtectedVmList[i] = vminfo
+					if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+						reqLogger.Error(err, "Failed to update Site status")
+					}
+
+					break
+				}
+			}
+		}
+	}
+	//fmt.Println("Setting ProtectVMUUIDList to Nil .......")
+	//instance.Spec.ProtectVMUUIDList = nil
+	//instance.Status.FailoverStatus.OverallFailoverStatus = draasv1alpha1.RECOVERY_ACTIVITY_NOT_STARTED
 	//update Spec
 	if err = r.Client.Update(context.TODO(), instance); err != nil {
 		reqLogger.Error(err, "Failed to update", "Site", instance.Name)
