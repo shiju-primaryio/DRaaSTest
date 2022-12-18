@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,6 +55,8 @@ type SiteReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
+
+	fmt.Println("\n ***Site: Current date and time is: ", time.Now().String())
 
 	// TODO(user): your logic here
 	reqLogger := logger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
@@ -106,6 +109,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return reconcile.Result{}, nil
 	}
 	*/
+	fmt.Println("\n Site: Current date and time is: ", time.Now().String())
 
 	var policyId string
 	fmt.Println("instance.Status.PolicyId: ", instance.Status.PolicyId)
@@ -167,7 +171,14 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	fmt.Println("Sleep Over for 10 seconds.....")
+	// Calling Sleep method
+	time.Sleep(10 * time.Second)
+
+	//return ctrl.Result{}, nil
+	return reconcile.Result{Requeue: true}, nil
+
+	//return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

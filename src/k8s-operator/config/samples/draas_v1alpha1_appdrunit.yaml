@@ -7,16 +7,15 @@ metadata:
     app.kubernetes.io/part-of: k8s-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: k8s-operator
-  name: appdrunit-sample
+  name: rk-appdrunit-sample
 spec:
+  site: "site-sample"
+  peerSite: "site-dr-sample"
+  vesToken: "vaultItem.46594.NGnnmWULCuqybPiYaNiJeenP9IVuedNCBQzcLsD0Vl2d"
   vCenter:
     ip: 10.20.3.11
     username: Administrator@primaryio.cloud
     password: PrimaryIO@123
   protectvmuuidList:
-  - vmUuid: "422a9256-253f-77fd-d963-9009c4efbb7c"
-    isPolicyAttach: true
-  - vmUuid: "422afef8-acdf-d896-f32d-2edd5435ac8b"
-    isPolicyAttach: true
-  - vmUuid: "422ac628-af0c-08d0-a678-8e91f239bb50"
+  - vmUuid: "422ab5d2-c9ff-01ab-6d66-37eaffdf99bf"
     isPolicyAttach: true

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	draasv1alpha1 "github.com/CacheboxInc/DRaaS/src/k8s-operator/api/v1alpha1"
 	"github.com/vmware/govmomi"
@@ -244,7 +245,7 @@ func GetPolicyList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.PolicyDet
 	return policyList, err
 }
 
-func GetVMDKsFromPostGresDB(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) (draasv1alpha1.VMDKListFromPostGresDResponse, error) {
+func GetVMDKsFromPostGresDB(VesAuthToken string) (draasv1alpha1.VMDKListFromPostGresDResponse, error) {
 	//vesauth, _ := ctx.Request.Cookie("VESauth")
 	var result draasv1alpha1.VMDKListFromPostGresDResponse
 
@@ -252,11 +253,11 @@ func GetVMDKsFromPostGresDB(VesAuth string, vmdkmapList []draasv1alpha1.TriggerF
 	req2, _ := http.NewRequest("GET", url2, nil)
 	req2.Header.Add("content-type", "application/json")
 	req2.Header.Add("cache-control", "no-cache")
-	req2.Header.Add("X-VES-Authorization", VesAuth)
+	req2.Header.Add("X-VES-Authorization", VesAuthToken)
 
-	fmt.Println("\nRequest PHP API URL", url2)
+	//fmt.Println("\nRequest PHP API URL", url2)
 
-	fmt.Println("\nRequest PHP API", req2)
+	//fmt.Println("\nRequest PHP API", req2)
 
 	res2, err2 := http.DefaultClient.Do(req2)
 	if err2 != nil {
@@ -269,7 +270,7 @@ func GetVMDKsFromPostGresDB(VesAuth string, vmdkmapList []draasv1alpha1.TriggerF
 			fmt.Println("Can not unmarshal JSON")
 			return result, err
 		}
-		fmt.Println(result.Data)
+		//fmt.Println(result.Data)
 	}
 	return result, nil
 
@@ -288,7 +289,7 @@ type FailoverResponse struct {
 	} `json:"data"`
 }
 
-func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+func InitiateFailover(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 
 	for i, vmdkmap := range vmdkmapList {
 
@@ -309,7 +310,7 @@ func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailove
 		req2, _ := http.NewRequest("POST", url2, bytes.NewBuffer(jsonStr))
 		req2.Header.Add("content-type", "application/json")
 		req2.Header.Add("cache-control", "no-cache")
-		req2.Header.Add("X-VES-Authorization", VesAuth)
+		req2.Header.Add("X-VES-Authorization", VesAuthToken)
 
 		fmt.Println("Request PHP API", req2)
 
@@ -339,18 +340,32 @@ func InitiateFailover(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailove
 
 }
 
-func WaitForActiveBitTobeSet(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+func WaitForActiveBitTobeSet(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 	var bRetryActiveBit bool
 
+	RetryCount := 0
 	bRetryActiveBit = true
 	for bRetryActiveBit {
 
+		fmt.Println("Sleep Over for 5 seconds in WaitForActiveBitTobeSet.....")
+		// Calling Sleep method
+		time.Sleep(5 * time.Second)
+
 		for i, vmdkmap := range vmdkmapList {
 
-			fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-			fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
+			fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.TargetVmdkID :", vmdkmap.ActiveFailover)
 
-			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") || (vmdkmap.ActiveFailover) {
+			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") || (vmdkmap.ActiveFailover == true) {
+				RetryCount = RetryCount + 1
+				if RetryCount > 5 {
+					//TODO: Revisit this code
+					bRetryActiveBit = false
+					fmt.Println("Failover API:exceeded retry count of 5 exiting : ")
+					return nil
+					//continue
+				}
 				fmt.Println("Continuing")
 				continue
 			}
@@ -367,7 +382,7 @@ func WaitForActiveBitTobeSet(VesAuth string, vmdkmapList []draasv1alpha1.Trigger
 			req2, _ := http.NewRequest("GET", url2, nil)
 			req2.Header.Add("content-type", "application/json")
 			req2.Header.Add("cache-control", "no-cache")
-			req2.Header.Add("X-VES-Authorization", VesAuth)
+			req2.Header.Add("X-VES-Authorization", VesAuthToken)
 
 			fmt.Println("Request PHP API", req2)
 
@@ -382,15 +397,15 @@ func WaitForActiveBitTobeSet(VesAuth string, vmdkmapList []draasv1alpha1.Trigger
 					fmt.Println(err)
 					fmt.Println("Can not unmarshal JSON")
 				}
-				fmt.Println("Failover API: Failover Id : ", result.Data.Id)
-				vmdkmap.FailoverTriggerID = result.Data.Id
+				fmt.Println("WaitForActiveBitTobeSet: Failover API: Failover Id : ", result.Data.Id)
+				//vmdkmap.FailoverTriggerID = result.Data.Id
 				vmdkmap.Ack = result.Data.Ack
 				vmdkmap.ActiveFailover = result.Data.Active
 				if !vmdkmap.ActiveFailover {
 					bRetryActiveBit = false
 					fmt.Println("Failover API: Active bit is false for failover ID : ", result.Data.Id)
 				}
-				fmt.Println("Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
+				fmt.Println("WaitForActiveBitTobeSet: Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
 				vmdkmap.SentCT = result.Data.Sent_ct
 				vmdkmap.SentBlocks = result.Data.Sentblocks
 				vmdkmap.TotalBlocks = result.Data.TotalBlocks
@@ -402,12 +417,12 @@ func WaitForActiveBitTobeSet(VesAuth string, vmdkmapList []draasv1alpha1.Trigger
 	return nil
 }
 
-func GetFailoverStatus(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 
 	for i, vmdkmap := range vmdkmapList {
 
-		fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-		fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+		fmt.Println("\t GetFailoverStatus: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
+		fmt.Println("\t GetFailoverStatus: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
 
 		if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
 			fmt.Println("Continuing")
@@ -426,8 +441,9 @@ func GetFailoverStatus(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailov
 		req2, _ := http.NewRequest("GET", url2, nil)
 		req2.Header.Add("content-type", "application/json")
 		req2.Header.Add("cache-control", "no-cache")
-		req2.Header.Add("X-VES-Authorization", VesAuth)
+		req2.Header.Add("X-VES-Authorization", VesAuthToken)
 
+		fmt.Println("Failover status url: ", url2)
 		fmt.Println("Request PHP API", req2)
 
 		res2, err2 := http.DefaultClient.Do(req2)
@@ -441,14 +457,17 @@ func GetFailoverStatus(VesAuth string, vmdkmapList []draasv1alpha1.TriggerFailov
 				fmt.Println(err)
 				fmt.Println("Can not unmarshal JSON")
 			}
-			fmt.Println("Failover API: Failover Id : ", result.Data.Id)
-			vmdkmap.FailoverTriggerID = result.Data.Id
+			fmt.Println("GET Failover API: Failover Id : ", result.Data.Id)
+			//vmdkmap.FailoverTriggerID = result.Data.Id
+			fmt.Println("Failover API: Failover ACk : ", result.Data.Ack)
 			vmdkmap.Ack = result.Data.Ack
+			fmt.Println("GET Failover API: Failover Active flag : ", result.Data.Active)
 			vmdkmap.ActiveFailover = result.Data.Active
-			fmt.Println("Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
+			fmt.Println("GET Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
 			vmdkmap.SentCT = result.Data.Sent_ct
 			vmdkmap.SentBlocks = result.Data.Sentblocks
 			vmdkmap.TotalBlocks = result.Data.TotalBlocks
+			fmt.Println("GET Failover API: Failover Total Blocks : ", result.Data.TotalBlocks)
 
 			vmdkmapList[i] = vmdkmap
 		}
