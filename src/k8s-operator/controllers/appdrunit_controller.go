@@ -292,9 +292,9 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			reqLogger.Error(err, "Failed to update Site status")
 		}
 
-		fmt.Println("Sleep Over for 10 seconds for active bit to be set.....")
+		fmt.Println("Sleep Over for 20 seconds for active bit to be set.....")
 		// Calling Sleep method
-		time.Sleep(10 * time.Second)
+		time.Sleep(20 * time.Second)
 
 		fmt.Println("Failover Step6: Waiting for Active bit to be set for all protected VMs ")
 		WaitForActiveBitTobeSet(instance.Spec.VesToken, instance.Status.FailoverVmdkListStatus)
@@ -306,6 +306,9 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update Site status")
 		}
+		// Calling Sleep method
+		fmt.Println("Sleep Over for 10 seconds before powering ON.....")
+		time.Sleep(10 * time.Second)
 
 		for _, vmdkmap := range vmdkmapList {
 			VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, true)
@@ -341,12 +344,23 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		reqLogger.Error(err, "Failed to update Site status")
 	}
 
+	if (instance.Spec.TriggerCancelRecoveryOperation) && (instance_dr != nil) {
+		instance.Status.FailoverStatus.OverallFailoverStatus = RECOVERY_ACTIVITY_NOT_STARTED
+		instance.Status.FailoverStatus.InfrastructureStatus = RECOVERY_ACTIVITY_NOT_STARTED
+		instance.Status.FailoverStatus.RehydrationStatus = RECOVERY_ACTIVITY_NOT_STARTED
+		instance.Status.FailoverStatus.PowerOnStatus = RECOVERY_ACTIVITY_NOT_STARTED
+		instance.Status.FailoverStatus.PowerOffStatus = RECOVERY_ACTIVITY_NOT_STARTED
+
+	}
 	if instance.Status.FailoverStatus.OverallFailoverStatus == RECOVERY_ACTIVITY_IN_PROGRESS {
 		fmt.Println("Adding GetFailoverStatus .......")
 
-		GetFailoverStatus(instance.Spec.VesToken, instance.Status.FailoverVmdkListStatus)
+		bIsFailoverCompleted, _ := GetFailoverStatus(instance.Spec.VesToken, instance.Status.FailoverVmdkListStatus)
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update Site status")
+		}
+		if bIsFailoverCompleted {
+			instance.Status.FailoverStatus.OverallFailoverStatus = RECOVERY_ACTIVITY_COMPLETED
 		}
 	}
 

@@ -27,17 +27,18 @@ import (
 type AppDRUnitSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	Site              string            `json:"site,omitempty"`
-	PeerSite          string            `json:"peerSite,omitempty"`
-	ProtectVMUUIDList []VmPolicyRequest `json:"protectvmuuidList,omitempty"`
-	Description       string            `json:"description,omitempty"`
-	VCenter           VCenterSpec       `json:"vCenter,omitempty"`
 	// Application will run on RemoteSite when trigger failover is set to true.
 	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
-	TriggerFailover bool   `json:"triggerFailover,omitempty"`
-	TriggerFailback bool   `json:"triggerFailback,omitempty"`
-	VesToken        string `json:"vesToken,omitempty"`
+
+	Site                           string            `json:"site,omitempty"`
+	PeerSite                       string            `json:"peerSite,omitempty"`
+	ProtectVMUUIDList              []VmPolicyRequest `json:"protectvmuuidList,omitempty"`
+	Description                    string            `json:"description,omitempty"`
+	VCenter                        VCenterSpec       `json:"vCenter,omitempty"`
+	TriggerFailover                bool              `json:"triggerFailover,omitempty"`
+	TriggerCancelRecoveryOperation bool              `json:"triggerCancelRecoveryOperation,omitempty"`
+	TriggerFailback                bool              `json:"triggerFailback,omitempty"`
+	VesToken                       string            `json:"vesToken,omitempty"`
 }
 
 type VMDKListFromPostGresDResponse struct {
@@ -79,6 +80,7 @@ type TriggerFailoverVmdkMapping struct {
 	Ack               string `json:"ack,omitempty"`
 	ActiveFailover    bool   `json:"activeFailover"`
 	FailoverTriggerID string `json:"failoverTriggerID"`
+	RehydrationStatus string `json:"rehydrationStatus,omitempty"`
 }
 
 type VmPolicyRequest struct {
@@ -109,6 +111,20 @@ const (
 
 )
 */
+
+type FailoverResponse struct {
+	Data struct {
+		Id           string `json:"id"`
+		SourceVMDKId string `json:"vmdk_id"`
+		TargetVMDKId string `json:"new_vmdk_id"`
+		Ack          string `json:"ack"`
+		Active       bool   `json:"active"`
+		Sent_ct      string `json:"sent_ct"`
+		Sentblocks   string `json:"sentblocks"`
+		TotalBlocks  string `json:"totalBlocks"`
+	} `json:"data"`
+}
+
 type FailoverStatus struct {
 	InfrastructureStatus  string `json:"infrastructureStatus"`
 	PowerOffStatus        string `json:"powerOffStatus"`

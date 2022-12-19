@@ -276,19 +276,20 @@ func GetVMDKsFromPostGresDB(VesAuthToken string) (draasv1alpha1.VMDKListFromPost
 
 }
 
-type FailoverResponse struct {
-	Data struct {
-		Id           string `json:"id"`
-		SourceVMDKId string `json:"vmdk_id"`
-		TargetVMDKId string `json:"new_vmdk_id"`
-		Ack          string `json:"ack"`
-		Active       bool   `json:"active"`
-		Sent_ct      string `json:"sent_ct"`
-		Sentblocks   string `json:"sentblocks"`
-		TotalBlocks  string `json:"totalBlocks"`
-	} `json:"data"`
-}
-
+/*
+	type FailoverResponse struct {
+		Data struct {
+			Id           string `json:"id"`
+			SourceVMDKId string `json:"vmdk_id"`
+			TargetVMDKId string `json:"new_vmdk_id"`
+			Ack          string `json:"ack"`
+			Active       bool   `json:"active"`
+			Sent_ct      string `json:"sent_ct"`
+			Sentblocks   string `json:"sentblocks"`
+			TotalBlocks  string `json:"totalBlocks"`
+		} `json:"data"`
+	}
+*/
 func InitiateFailover(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 
 	for i, vmdkmap := range vmdkmapList {
@@ -320,7 +321,7 @@ func InitiateFailover(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFa
 		} else {
 			defer res2.Body.Close()
 			body2, _ := ioutil.ReadAll(res2.Body)
-			var result FailoverResponse
+			var result draasv1alpha1.FailoverResponse
 			if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
 				fmt.Println(err)
 				fmt.Println("Can not unmarshal JSON")
@@ -392,7 +393,7 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmdkmapList []draasv1alpha1.Tr
 			} else {
 				defer res2.Body.Close()
 				body2, _ := ioutil.ReadAll(res2.Body)
-				var result FailoverResponse
+				var result draasv1alpha1.FailoverResponse
 				if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
 					fmt.Println(err)
 					fmt.Println("Can not unmarshal JSON")
@@ -417,14 +418,16 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmdkmapList []draasv1alpha1.Tr
 	return nil
 }
 
-func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) (bool, error) {
 
+	bIsFailoverCompleted := true
 	for i, vmdkmap := range vmdkmapList {
 
 		fmt.Println("\t GetFailoverStatus: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
 		fmt.Println("\t GetFailoverStatus: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
 
 		if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
+			bIsFailoverCompleted = false
 			fmt.Println("Continuing")
 			continue
 		}
@@ -452,10 +455,12 @@ func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerF
 		} else {
 			defer res2.Body.Close()
 			body2, _ := ioutil.ReadAll(res2.Body)
-			var result FailoverResponse
+			var result draasv1alpha1.FailoverResponse
 			if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
 				fmt.Println(err)
 				fmt.Println("Can not unmarshal JSON")
+				bIsFailoverCompleted = false
+				return false, nil
 			}
 			fmt.Println("GET Failover API: Failover Id : ", result.Data.Id)
 			//vmdkmap.FailoverTriggerID = result.Data.Id
@@ -469,11 +474,22 @@ func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerF
 			vmdkmap.TotalBlocks = result.Data.TotalBlocks
 			fmt.Println("GET Failover API: Failover Total Blocks : ", result.Data.TotalBlocks)
 
+			if vmdkmap.ActiveFailover == false {
+				if (vmdkmap.SentBlocks != "0") && (vmdkmap.SentBlocks == vmdkmap.SentCT) {
+					vmdkmap.RehydrationStatus = RECOVERY_ACTIVITY_COMPLETED
+				} else {
+					vmdkmap.RehydrationStatus = RECOVERY_ACTIVITY_NOT_STARTED
+					bIsFailoverCompleted = false
+				}
+			} else {
+				vmdkmap.RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+				bIsFailoverCompleted = false
+			}
 			vmdkmapList[i] = vmdkmap
 		}
 	}
 
-	return nil
+	return bIsFailoverCompleted, nil
 
 }
 
