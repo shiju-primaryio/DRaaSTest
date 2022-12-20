@@ -43,6 +43,7 @@ const RECOVERY_ACTIVITY_STARTED string = "STARTED"
 const RECOVERY_ACTIVITY_IN_PROGRESS string = "IN_PROGRESS"
 const RECOVERY_ACTIVITY_COMPLETED string = "COMPLETED"
 const RECOVERY_ACTIVITY_ERROR_OCCURED string = "ERROR_OCCURED"
+const SNIFPHPURL = "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz"
 
 //+kubebuilder:rbac:groups=draas.primaryio.com,resources=appdrunits,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=draas.primaryio.com,resources=appdrunits/status,verbs=get;update;patch
@@ -83,6 +84,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	instance.Spec.SnifPhpUrl = SNIFPHPURL
 
 	/*
 		fmt.Println("\n Printing info..Name: ", instance.Name)
@@ -374,6 +376,10 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		fmt.Println("Failover Step4: Calling  GetVMDKsFromPostGresDB to create map..")
 
 		VMDKListFromPostGresDResponse, err := GetVMDKsFromPostGresDB(instance.Spec.VesToken, instance.Spec.SnifPhpUrl)
+		if err != nil {
+			reqLogger.Error(err, "Failed to fetch VMDK's from DB")
+		}
+
 		for _, vminfo := range VMDKListFromPostGresDResponse.Data {
 			for i, vmdkmap := range vmdkmapList {
 				fmt.Println("Failover : SourceScope:", vmdkmap.SourceScope)
@@ -513,7 +519,10 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		instance.Status.FailoverStatus.RehydrationStatus = RECOVERY_ACTIVITY_NOT_STARTED
 		instance.Status.FailoverStatus.PowerOnStatus = RECOVERY_ACTIVITY_NOT_STARTED
 		instance.Status.FailoverStatus.PowerOffStatus = RECOVERY_ACTIVITY_NOT_STARTED
-
+		err := CancelFailover(instance.Spec.VesToken, instance.Spec.SnifPhpUrl, instance.Status.FailoverVmdkListStatus)
+		if err != nil {
+			fmt.Println("Failed to cancel failover .......", err)
+		}
 	}
 
 	if instance.Status.FailoverStatus.OverallFailoverStatus == RECOVERY_ACTIVITY_IN_PROGRESS {
@@ -580,6 +589,15 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			fmt.Println("Failed to attach VM .......", err)
 		}
+
+		fmt.Println("instance.Spec.SnifPhpUrl: ", instance.Spec.SnifPhpUrl)
+		for _, vm := range vmDetailList {
+			err := CreateVMDKsAtPostGresDB(instance.Spec.VesToken, instance.Spec.SnifPhpUrl, vm)
+			if err != nil {
+				fmt.Println("Failed to create VMDK's at postgres .......", err)
+			}
+		}
+
 		instance.Status.ProtectedVmList = vmDetailList
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update Site status")
@@ -640,6 +658,9 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			fmt.Println("Length of ModifyVMProtect Request is: ", len(modifyProtectVmReq))
 
 			vmDetailList, err = ChangePolicyState(instance.Spec.VCenter, modifyProtectVmReq)
+			if err != nil {
+				fmt.Println("Failed to change policy state of VM .......", err)
+			}
 
 			for _, vmProtectReq := range modifyProtectVmReq {
 				if !vmProtectReq.IsPolicyAttach {
@@ -650,12 +671,24 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					}
 				}
 			}
+
 			for _, vmDet := range vmDetailList {
 				instance.Status.ProtectedVmList = append(instance.Status.ProtectedVmList, vmDet)
+				err := CreateVMDKsAtPostGresDB(instance.Spec.VesToken, instance.Spec.SnifPhpUrl, vmDet)
+				if err != nil {
+					fmt.Println("Failed to create VMDK's at postgres .......", err)
+				}
 				//Trigger PowerOn for VM
 				//fmt.Println("Powering ON VM :", vmDet.Name)
 				//VmPowerChange(vcenter_dr, vmDet.VmUuid, true)
 			}
+
+			/*for _, vm := range instance.Status.ProtectedVmList {
+				err := CreateVMDKsAtPostGresDB(instance.Spec.VesToken, instance.Spec.SnifPhpUrl, vm)
+				if err != nil {
+					fmt.Println("Failed to create VMDK's at postgres .......", err)
+				}
+			} */
 
 			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 				reqLogger.Error(err, "Failed to update Site status")

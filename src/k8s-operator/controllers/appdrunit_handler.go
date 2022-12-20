@@ -250,7 +250,7 @@ func GetVMDKsFromPostGresDB(VesAuthToken string, SnifPhpUrl string) (draasv1alph
 	//vesauth, _ := ctx.Request.Cookie("VESauth")
 	var result draasv1alpha1.VMDKListFromPostGresDResponse
 
-	url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/vmdks"
+	url2 := SnifPhpUrl + "/api/vmdks"
 	req2, _ := http.NewRequest("GET", url2, nil)
 	req2.Header.Add("content-type", "application/json")
 	req2.Header.Add("cache-control", "no-cache")
@@ -279,20 +279,81 @@ func GetVMDKsFromPostGresDB(VesAuthToken string, SnifPhpUrl string) (draasv1alph
 
 }
 
-/*
-	type FailoverResponse struct {
-		Data struct {
-			Id           string `json:"id"`
-			SourceVMDKId string `json:"vmdk_id"`
-			TargetVMDKId string `json:"new_vmdk_id"`
-			Ack          string `json:"ack"`
-			Active       bool   `json:"active"`
-			Sent_ct      string `json:"sent_ct"`
-			Sentblocks   string `json:"sentblocks"`
-			TotalBlocks  string `json:"totalBlocks"`
-		} `json:"data"`
+func CreateVMDKsAtPostGresDB(VesAuthToken string, SnifPhpUrl string, vmInfo draasv1alpha1.VMStatus) error {
+	fmt.Println("In CreateVMDKsAtPostGresDB.....")
+	fmt.Println("SnifPhpUrl : ", SnifPhpUrl)
+
+	url2 := SnifPhpUrl + "/api/vmdks"
+	fmt.Println("url2 : ", url2)
+
+	for _, disk := range vmInfo.Disks {
+		fmt.Println("disk.AbsPath: ", disk.AbsPath)
+		var result draasv1alpha1.VMDKFromPostGresDResponse
+
+		jsonData := map[string]string{"scope": disk.AbsPath}
+		jsonStr, _ := json.Marshal(jsonData)
+
+		req2, _ := http.NewRequest("POST", url2, bytes.NewBuffer(jsonStr))
+		req2.Header.Add("content-type", "application/json")
+		req2.Header.Add("cache-control", "no-cache")
+		req2.Header.Add("X-VES-Authorization", VesAuthToken)
+
+		fmt.Println("CreateVMDK Request PHP API", req2)
+		res2, err2 := http.DefaultClient.Do(req2)
+		if err2 != nil {
+			fmt.Println(err2)
+		} else {
+			defer res2.Body.Close()
+			body2, _ := ioutil.ReadAll(res2.Body)
+			if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
+				fmt.Println(err)
+				fmt.Println("Can not unmarshal JSON")
+				return err
+			}
+
+			fmt.Println("result.VmdkId: ", result.VmdkId)
+			//disk.VmdkPostgerId = result.VmdkId
+		}
 	}
-*/
+
+	return nil
+}
+
+func CancelFailover(VesAuthToken string, SnifPhpUrl string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+	fmt.Println("In CancelFailover.....")
+	//url := SnifPhpUrl + "/api/failovers"
+
+	for _, vmdkmap := range vmdkmapList {
+		fmt.Println("\tCancelFailover: vmdkmap.FailoverTriggerID", vmdkmap.FailoverTriggerID)
+
+		/* jsonData := map[string]string{"failover_id": vmdkmap.FailoverTriggerID}
+		jsonStr, _ := json.Marshal(jsonData) */
+
+		url := SnifPhpUrl + "/api/failovers/" + vmdkmap.FailoverTriggerID
+
+		req2, _ := http.NewRequest("DELETE", url, nil)
+		req2.Header.Add("content-type", "application/json")
+		req2.Header.Add("cache-control", "no-cache")
+		req2.Header.Add("X-VES-Authorization", VesAuthToken)
+
+		fmt.Println("CancelFailover Request PHP API", req2)
+
+		res2, err2 := http.DefaultClient.Do(req2)
+		if err2 != nil {
+			fmt.Println(err2)
+			return err2
+		}
+
+		if res2.StatusCode != 204 {
+			fmt.Println("Cancel failover failed.")
+		}
+
+		fmt.Println("Cancel failover succeds.")
+	}
+
+	return nil
+}
+
 func InitiateFailover(VesAuthToken string, SnifPhpUrl string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 
 	for i, vmdkmap := range vmdkmapList {
@@ -311,7 +372,7 @@ func InitiateFailover(VesAuthToken string, SnifPhpUrl string, vmdkmapList []draa
 		}
 
 		//vesauth, _ := ctx.Request.Cookie("VESauth")
-		url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers"
+		url2 := SnifPhpUrl + "/api/failovers"
 
 		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
 		jsonData := map[string]string{"vmdk_id": vmdkmap.SourceVmdkID, "new_vmdk_id": vmdkmap.TargetVmdkID}
@@ -371,7 +432,7 @@ func InitiateFailback(VesAuthToken string, SnifPhpUrl string, bFailbackWithLiveR
 		}
 
 		//vesauth, _ := ctx.Request.Cookie("VESauth")
-		url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers"
+		url2 := SnifPhpUrl + "/api/failovers"
 
 		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
 		jsonData := draasv1alpha1.InitiateFailbackRequest{
@@ -453,7 +514,7 @@ func WaitForActiveBitTobeSetFailBack(VesAuthToken string, SnifPhpUrl string, vmd
 			//FailoverId string
 			FailbackId := vmdkmap.FailbackTriggerID
 			//vesauth, _ := ctx.Request.Cookie("VESauth")
-			url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers/"
+			url2 := SnifPhpUrl + "/api/failovers/"
 
 			url2 += FailbackId
 			//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
@@ -533,7 +594,7 @@ func WaitForActiveBitTobeSet(VesAuthToken string, SnifPhpUrl string, vmdkmapList
 			//FailoverId string
 			FailoverId := vmdkmap.FailoverTriggerID
 			//vesauth, _ := ctx.Request.Cookie("VESauth")
-			url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers/"
+			url2 := SnifPhpUrl + "/api/failovers/"
 
 			url2 += FailoverId
 			//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
@@ -597,7 +658,7 @@ func GetFailbackStatus(VesAuthToken string, SnifPhpUrl string, vmdkmapList []dra
 		//FailbackId string
 		FailbackId := vmdkmap.FailbackTriggerID
 		//vesauth, _ := ctx.Request.Cookie("VESauth")
-		url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers/"
+		url2 := SnifPhpUrl + "/api/failovers/"
 
 		url2 += FailbackId
 		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
@@ -677,7 +738,7 @@ func GetFailoverStatus(VesAuthToken string, SnifPhpUrl string, vmdkmapList []dra
 		//FailoverId string
 		FailoverId := vmdkmap.FailoverTriggerID
 		//vesauth, _ := ctx.Request.Cookie("VESauth")
-		url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers/"
+		url2 := SnifPhpUrl + "/api/failovers/"
 
 		url2 += FailoverId
 		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
