@@ -39,6 +39,7 @@ type AppDRUnitSpec struct {
 	TriggerCancelRecoveryOperation bool              `json:"triggerCancelRecoveryOperation,omitempty"`
 	TriggerFailback                bool              `json:"triggerFailback,omitempty"`
 	VesToken                       string            `json:"vesToken,omitempty"`
+	SnifPhpUrl                     string            `json:"snifPhpUrl,omitempty"`
 }
 
 type VMDKListFromPostGresDResponse struct {
@@ -98,6 +99,7 @@ type AppDRUnitStatus struct {
 	FailoverVmdkListStatus []TriggerFailoverVmdkMapping `json:"failoverVmdkListStatus,omitempty"`
 	FailoverStatus         FailoverStatus               `json:"failoverStatus,omitempty"`
 	FailbackStatus         FailoverStatus               `json:"failbackStatus,omitempty"`
+	FailbackVmdkListStatus []TriggerFailoverVmdkMapping `json:"failbackVmdkListStatus,omitempty"`
 }
 
 /*

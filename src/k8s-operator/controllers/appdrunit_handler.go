@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -245,11 +246,11 @@ func GetPolicyList(vcenter draasv1alpha1.VCenterSpec) ([]draasv1alpha1.PolicyDet
 	return policyList, err
 }
 
-func GetVMDKsFromPostGresDB(VesAuthToken string) (draasv1alpha1.VMDKListFromPostGresDResponse, error) {
+func GetVMDKsFromPostGresDB(VesAuthToken string, SnifPhpUrl string) (draasv1alpha1.VMDKListFromPostGresDResponse, error) {
 	//vesauth, _ := ctx.Request.Cookie("VESauth")
 	var result draasv1alpha1.VMDKListFromPostGresDResponse
 
-	url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/vmdks"
+	url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/vmdks"
 	req2, _ := http.NewRequest("GET", url2, nil)
 	req2.Header.Add("content-type", "application/json")
 	req2.Header.Add("cache-control", "no-cache")
@@ -258,6 +259,8 @@ func GetVMDKsFromPostGresDB(VesAuthToken string) (draasv1alpha1.VMDKListFromPost
 	//fmt.Println("\nRequest PHP API URL", url2)
 
 	//fmt.Println("\nRequest PHP API", req2)
+	//skip ssl tls verify
+	//http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	res2, err2 := http.DefaultClient.Do(req2)
 	if err2 != nil {
@@ -290,7 +293,7 @@ func GetVMDKsFromPostGresDB(VesAuthToken string) (draasv1alpha1.VMDKListFromPost
 		} `json:"data"`
 	}
 */
-func InitiateFailover(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+func InitiateFailover(VesAuthToken string, SnifPhpUrl string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 
 	for i, vmdkmap := range vmdkmapList {
 
@@ -301,12 +304,21 @@ func InitiateFailover(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFa
 			fmt.Println("Continuing")
 			continue
 		}
+
+		if vmdkmap.FailoverTriggerID != "" {
+			fmt.Println("Failover is already initiated for Vm : ", vmdkmap.Label)
+			continue
+		}
+
 		//vesauth, _ := ctx.Request.Cookie("VESauth")
-		url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/failovers"
+		url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers"
 
 		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
 		jsonData := map[string]string{"vmdk_id": vmdkmap.SourceVmdkID, "new_vmdk_id": vmdkmap.TargetVmdkID}
 		jsonStr, _ := json.Marshal(jsonData)
+
+		//skip ssl tls verify
+		//http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 		req2, _ := http.NewRequest("POST", url2, bytes.NewBuffer(jsonStr))
 		req2.Header.Add("content-type", "application/json")
@@ -341,7 +353,7 @@ func InitiateFailover(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFa
 
 }
 
-func WaitForActiveBitTobeSet(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
+func WaitForActiveBitTobeSet(VesAuthToken string, SnifPhpUrl string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) error {
 	var bRetryActiveBit bool
 
 	RetryCount := 0
@@ -373,7 +385,7 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmdkmapList []draasv1alpha1.Tr
 			//FailoverId string
 			FailoverId := vmdkmap.FailoverTriggerID
 			//vesauth, _ := ctx.Request.Cookie("VESauth")
-			url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/failovers/"
+			url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers/"
 
 			url2 += FailoverId
 			//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
@@ -386,6 +398,9 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmdkmapList []draasv1alpha1.Tr
 			req2.Header.Add("X-VES-Authorization", VesAuthToken)
 
 			fmt.Println("Request PHP API", req2)
+
+			//skip ssl tls verify
+			http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 			res2, err2 := http.DefaultClient.Do(req2)
 			if err2 != nil {
@@ -418,7 +433,7 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmdkmapList []draasv1alpha1.Tr
 	return nil
 }
 
-func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) (bool, error) {
+func GetFailoverStatus(VesAuthToken string, SnifPhpUrl string, vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping) (bool, error) {
 
 	bIsFailoverCompleted := true
 	for i, vmdkmap := range vmdkmapList {
@@ -434,7 +449,7 @@ func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerF
 		//FailoverId string
 		FailoverId := vmdkmap.FailoverTriggerID
 		//vesauth, _ := ctx.Request.Cookie("VESauth")
-		url2 := "https://r81d6d155168c.snif-d060ea6e909e-9c3701e2.snif.xyz/api/failovers/"
+		url2 := "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz/api/failovers/"
 
 		url2 += FailoverId
 		//var jsonStr = []byte(`{"vmdk_id":"56", "new_vmdk_id":"77"}`)
@@ -448,6 +463,9 @@ func GetFailoverStatus(VesAuthToken string, vmdkmapList []draasv1alpha1.TriggerF
 
 		fmt.Println("Failover status url: ", url2)
 		fmt.Println("Request PHP API", req2)
+
+		//skip ssl tls verify
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 		res2, err2 := http.DefaultClient.Do(req2)
 		if err2 != nil {
