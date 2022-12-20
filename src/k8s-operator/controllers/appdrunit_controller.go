@@ -122,6 +122,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			reqLogger.Error(err, "Failed to update Site status")
 		}
 	}
+	vcenter := instance.Spec.VCenter
 
 	if instance.Spec.PeerSite != "" {
 		instance.Status.PeerSite = instance.Spec.PeerSite
@@ -145,6 +146,139 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		vcenter_dr = instance_dr.Spec.VCenter
 		fmt.Println("remote vcenter: ", vcenter_dr.IP)
 		fmt.Println("remote username : ", vcenter_dr.UserName)
+	}
+
+	//Trigger Failback
+	if ((instance.Spec.TriggerFailback) || (instance.Spec.TriggerFailbackWithLiveReplication)) && (instance != nil) {
+		fmt.Println("Failback Step1 ")
+		//Step 1: Create Infrastructure : Assume its already created for failback
+		instance.Status.FailbackStatus.InfrastructureStatus = RECOVERY_ACTIVITY_COMPLETED
+
+		//Update Status
+		instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_STARTED
+
+		var vmdkmap_fb_List []draasv1alpha1.TriggerFailbackVmdkMapping
+
+		var vmdkmap_fb draasv1alpha1.TriggerFailbackVmdkMapping
+		fmt.Println("Failback Step2: Listing Source VMDKs Info.. ")
+		//Copy the Mapping from FailoverVmdkListStatus to FailbackVmdkListStatus
+		for _, vmdkmap_fo := range instance.Status.FailoverVmdkListStatus {
+			//Swap the fields
+			vmdkmap_fb.SourceVmUUID = vmdkmap_fo.TargetVmUUID
+			vmdkmap_fb.TargetVmUUID = vmdkmap_fo.SourceVmUUID
+			vmdkmap_fb.SourceScope = vmdkmap_fo.TargetScope
+			vmdkmap_fb.TargetScope = vmdkmap_fo.SourceScope
+
+			//Copy the fields
+			vmdkmap_fb.Label = vmdkmap_fo.Label
+			vmdkmap_fb.VmName = vmdkmap_fo.VmName
+			vmdkmap_fb.UnitNumber = vmdkmap_fo.UnitNumber
+			vmdkmap_fb.ScsiControllerId = vmdkmap_fo.ScsiControllerId
+
+			// Initialize the fields
+			vmdkmap_fb.FailbackTriggerID = "0"
+			vmdkmap_fb.Ack = "0"
+			vmdkmap_fb.SentCT = "0"
+			vmdkmap_fb.SentBlocks = "0"
+			vmdkmap_fb.TotalBlocks = "0"
+			vmdkmap_fb.RehydrationStatus = RECOVERY_ACTIVITY_NOT_STARTED
+
+			vmdkmap_fb_List = append(vmdkmap_fb_List, vmdkmap_fb)
+		}
+		instance.Status.FailbackVmdkListStatus = vmdkmap_fb_List
+
+		//Step 2: PowerOff all Original VMs
+
+		//Update Status : activity started
+		instance.Status.FailbackStatus.PowerOffStatus = RECOVERY_ACTIVITY_STARTED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		fmt.Println("Failback Step3: Powering off VMs on source.. ")
+		for _, vmdkmap := range vmdkmap_fb_List {
+			VmPowerChange(vcenter, vmdkmap.TargetVmUUID, false)
+		}
+
+		//Update Status : activity Completed
+		instance.Status.FailbackStatus.PowerOffStatus = RECOVERY_ACTIVITY_COMPLETED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		//Step 3: Trigger Failback
+		fmt.Println("Failback Step4: Triggering failback ")
+		instance.Status.FailbackVmdkListStatus = vmdkmap_fb_List
+		instance.Status.FailbackStatus.RehydrationStatus = RECOVERY_ACTIVITY_STARTED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		InitiateFailback(instance.Spec.VesToken, instance.Spec.SnifPhpUrl, instance.Spec.TriggerFailbackWithLiveReplication, vmdkmap_fb_List)
+
+		//Update Status : activity Completed
+		//instance.Status.FailbackStatus.PowerOffStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+		instance.Status.FailbackVmdkListStatus = vmdkmap_fb_List
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		fmt.Println("Sleep Over for 10 seconds for active bit to be set.....")
+		// Calling Sleep method
+		time.Sleep(10 * time.Second)
+
+		fmt.Println("Failback Step5: Waiting for Active bit to be set for all protected VMs ")
+		WaitForActiveBitTobeSetFailBack(instance.Spec.VesToken, instance.Spec.SnifPhpUrl, instance.Status.FailbackVmdkListStatus)
+
+		fmt.Println("Failback Step6: Powering on VM ")
+
+		//Step 6: PowerOn all VMs
+		instance.Status.FailbackStatus.PowerOnStatus = RECOVERY_ACTIVITY_STARTED
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+		// Calling Sleep method
+		fmt.Println("Sleep Over for 10 seconds before powering ON.....")
+		time.Sleep(10 * time.Second)
+
+		bAllVmDKsActive := true
+		for _, vmdkmap := range vmdkmap_fb_List {
+			if vmdkmap.ActiveFailback {
+				VmPowerChange(vcenter, vmdkmap.TargetVmUUID, true)
+			} else {
+				instance.Status.FailbackStatus.PowerOnStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+				bAllVmDKsActive = false
+			}
+		}
+
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		//update Spec
+		if bAllVmDKsActive {
+			instance.Status.FailbackStatus.PowerOnStatus = RECOVERY_ACTIVITY_COMPLETED
+			instance.Status.FailbackStatus.RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+			instance.Spec.TriggerFailback = false
+		}
+		if err = r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update", "Site", instance.Name)
+			return reconcile.Result{}, err
+		}
+
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+
+		fmt.Println("Sleep Over for 10 seconds after failback trigger.....")
+		// Calling Sleep method
+		time.Sleep(10 * time.Second)
+
+		//Requeue the work to reconsiler
+		if err != nil {
+			return reconcile.Result{Requeue: true}, nil
+		}
+
 	}
 
 	if (instance.Spec.TriggerFailover) && (instance_dr != nil) && (instance.Status.FailoverStatus.InfrastructureStatus != RECOVERY_ACTIVITY_COMPLETED) {
@@ -400,6 +534,33 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			for _, vmdkmap := range vmdkmapList {
 				VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, false)
+			}
+
+			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+				reqLogger.Error(err, "Failed to update Site status")
+			}
+
+		}
+	}
+
+	if instance.Status.FailbackStatus.OverallFailbackStatus == RECOVERY_ACTIVITY_IN_PROGRESS {
+		fmt.Println("Adding GetFailbackStatus .......")
+
+		bIsFailbackCompleted, _ := GetFailbackStatus(instance.Spec.VesToken, instance.Spec.SnifPhpUrl, instance.Status.FailbackVmdkListStatus)
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update Site status")
+		}
+		if bIsFailbackCompleted {
+			instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_COMPLETED
+			instance.Status.FailbackStatus.RehydrationStatus = RECOVERY_ACTIVITY_COMPLETED
+
+			var vmdkmapList []draasv1alpha1.TriggerFailbackVmdkMapping
+
+			vmdkmapList = instance.Status.FailbackVmdkListStatus
+			fmt.Println("Failback COMPLETED.. Powering off VMs on traget.......")
+
+			for _, vmdkmap := range vmdkmapList {
+				VmPowerChange(vcenter, vmdkmap.TargetVmUUID, false)
 			}
 
 			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {

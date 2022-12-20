@@ -30,16 +30,17 @@ type AppDRUnitSpec struct {
 	// Application will run on RemoteSite when trigger failover is set to true.
 	// TriggerFailover will invoke terraform script to create infra, get mapping of vmdks
 
-	Site                           string            `json:"site,omitempty"`
-	PeerSite                       string            `json:"peerSite,omitempty"`
-	ProtectVMUUIDList              []VmPolicyRequest `json:"protectvmuuidList,omitempty"`
-	Description                    string            `json:"description,omitempty"`
-	VCenter                        VCenterSpec       `json:"vCenter,omitempty"`
-	TriggerFailover                bool              `json:"triggerFailover,omitempty"`
-	TriggerCancelRecoveryOperation bool              `json:"triggerCancelRecoveryOperation,omitempty"`
-	TriggerFailback                bool              `json:"triggerFailback,omitempty"`
-	VesToken                       string            `json:"vesToken,omitempty"`
-	SnifPhpUrl                     string            `json:"snifPhpUrl,omitempty"`
+	Site                               string            `json:"site,omitempty"`
+	PeerSite                           string            `json:"peerSite,omitempty"`
+	ProtectVMUUIDList                  []VmPolicyRequest `json:"protectvmuuidList,omitempty"`
+	Description                        string            `json:"description,omitempty"`
+	VCenter                            VCenterSpec       `json:"vCenter,omitempty"`
+	TriggerFailover                    bool              `json:"triggerFailover,omitempty"`
+	TriggerFailbackWithLiveReplication bool              `json:"triggerFailbackWithLiveReplication,omitempty"`
+	TriggerCancelRecoveryOperation     bool              `json:"triggerCancelRecoveryOperation,omitempty"`
+	TriggerFailback                    bool              `json:"triggerFailback,omitempty"`
+	VesToken                           string            `json:"vesToken,omitempty"`
+	SnifPhpUrl                         string            `json:"snifPhpUrl,omitempty"`
 }
 
 type VMDKListFromPostGresDResponse struct {
@@ -84,6 +85,27 @@ type TriggerFailoverVmdkMapping struct {
 	RehydrationStatus string `json:"rehydrationStatus,omitempty"`
 }
 
+type TriggerFailbackVmdkMapping struct {
+	VmName            string `json:"vmName,omitempty"`
+	UnitNumber        int    `json:"unitNumber"`
+	ScsiControllerId  string `json:"scsiControllerId,omitempty"`
+	Label             string `json:"label,omitempty"`
+	SourceVmdkID      string `json:"sourceVmdkID,omitempty"`
+	TargetVmdkID      string `json:"targetVmdkID,omitempty"`
+	SourceVmUUID      string `json:"sourceVmUUID,omitempty"`
+	TargetVmUUID      string `json:"targetVmUUID,omitempty"`
+	SourceScope       string `json:"sourceScope,omitempty"`
+	TargetScope       string `json:"targetScope,omitempty"`
+	SentBlocks        string `json:"sentBlocks,omitempty"`
+	TotalBlocks       string `json:"totalBlocks,omitempty"`
+	SentCT            string `json:"sentCT,omitempty"`
+	Ack               string `json:"ack,omitempty"`
+	Follow_Seq        string `json:"follow_Seq,omitempty"`
+	ActiveFailback    bool   `json:"activeFailback"`
+	FailbackTriggerID string `json:"failbackTriggerID"`
+	RehydrationStatus string `json:"rehydrationStatus,omitempty"`
+}
+
 type VmPolicyRequest struct {
 	VmUuid         string `json:"vmUuid,omitempty"`
 	IsPolicyAttach bool   `json:"isPolicyAttach,omitempty"`
@@ -96,10 +118,10 @@ type AppDRUnitStatus struct {
 	Site                   string                       `json:"site,omitempty"`
 	ProtectedVmList        []VMStatus                   `json:"protectedVmList,omitempty"`
 	PeerSite               string                       `json:"peerSite,omitempty"`
-	FailoverVmdkListStatus []TriggerFailoverVmdkMapping `json:"failoverVmdkListStatus,omitempty"`
 	FailoverStatus         FailoverStatus               `json:"failoverStatus,omitempty"`
-	FailbackStatus         FailoverStatus               `json:"failbackStatus,omitempty"`
-	FailbackVmdkListStatus []TriggerFailoverVmdkMapping `json:"failbackVmdkListStatus,omitempty"`
+	FailbackStatus         FailbackStatus               `json:"failbackStatus,omitempty"`
+	FailoverVmdkListStatus []TriggerFailoverVmdkMapping `json:"failoverVmdkListStatus,omitempty"`
+	FailbackVmdkListStatus []TriggerFailbackVmdkMapping `json:"failbackVmdkListStatus,omitempty"`
 }
 
 /*
@@ -114,6 +136,12 @@ const (
 )
 */
 
+type InitiateFailbackRequest struct {
+	SourceVMDKId string `json:"vmdk_id"`
+	TargetVMDKId string `json:"new_vmdk_id"`
+	Follow       bool   `json:"follow"`
+}
+
 type FailoverResponse struct {
 	Data struct {
 		Id           string `json:"id"`
@@ -124,6 +152,7 @@ type FailoverResponse struct {
 		Sent_ct      string `json:"sent_ct"`
 		Sentblocks   string `json:"sentblocks"`
 		TotalBlocks  string `json:"totalBlocks"`
+		Follow_Seq   string `json:"follow_Seq"`
 	} `json:"data"`
 }
 
@@ -133,6 +162,14 @@ type FailoverStatus struct {
 	RehydrationStatus     string `json:"rehydrationStatus"`
 	PowerOnStatus         string `json:"powerOnStatus"`
 	OverallFailoverStatus string `json:"overallFailoverStatus"`
+}
+
+type FailbackStatus struct {
+	InfrastructureStatus  string `json:"infrastructureStatus"`
+	PowerOffStatus        string `json:"powerOffStatus"`
+	RehydrationStatus     string `json:"rehydrationStatus"`
+	PowerOnStatus         string `json:"powerOnStatus"`
+	OverallFailbackStatus string `json:"overallFailbackStatus"`
 }
 
 //+kubebuilder:object:root=true
