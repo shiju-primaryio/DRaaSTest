@@ -116,11 +116,11 @@ func getVmList(vcenter draasv1alpha1.VCenterSpec, vmUuidList []string) ([]draasv
 	var vmList []draasv1alpha1.VMStatus
 	//var vmList := make([]draasv1alpha1.VMStatus)
 
-	fmt.Println("vcenter.UserName: ", vcenter.UserName)
-	fmt.Println("vcenter.Password: ", vcenter.Password)
-	fmt.Println("vcenter.IP: ", vcenter.IP)
+	//fmt.Println("vcenter.UserName: ", vcenter.UserName)
+	//fmt.Println("vcenter.Password: ", vcenter.Password)
+	//fmt.Println("vcenter.IP: ", vcenter.IP)
 	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
-	fmt.Println(urlString)
+	//fmt.Println(urlString)
 	u, err := url.Parse(urlString)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -513,6 +513,8 @@ func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState 
 	u, err := url.Parse(urlString)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	//fmt.Println("VmPowerChange: urlString ...", urlString)
 
 	// Connect and log in to ESX or vCenter
 	c, err1 := govmomi.NewClient(ctx, u, true)

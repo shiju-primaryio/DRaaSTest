@@ -178,11 +178,17 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			fmt.Println("FB: TVmUUID: ", vmmap_fb.VmName)
 			vmmap_fb.IsActiveBitTrue = false
 
-			for _, vmdkmap_fo := range vmmap_fb.VmdkStatusList {
+			for _, vmdkmap_fo := range vmmap_fo.VmdkStatusList {
 
 				//Swap the fields
 				vmdkmap_fb.SourceScope = vmdkmap_fo.TargetScope
 				vmdkmap_fb.TargetScope = vmdkmap_fo.SourceScope
+				fmt.Println("FB: TVSourceScope: ", vmdkmap_fb.SourceScope)
+				fmt.Println("FB: TVTargetScope: ", vmdkmap_fb.TargetScope)
+				vmdkmap_fb.SourceVmdkID = vmdkmap_fo.TargetVmdkID
+				vmdkmap_fb.TargetVmdkID = vmdkmap_fo.SourceVmdkID
+				fmt.Println("FB: vmdkmap_fb.SourceVmdkID: ", vmdkmap_fb.SourceVmdkID)
+				fmt.Println("FB: vmdkmap_fb.TargetVmdkID: ", vmdkmap_fb.TargetVmdkID)
 
 				//Copy the fields
 				vmdkmap_fb.Label = vmdkmap_fo.Label
@@ -199,6 +205,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				vmdkmap_fb.RehydrationStatus = RECOVERY_ACTIVITY_NOT_STARTED
 				vmdkmap_fb_List = append(vmdkmap_fb_List, vmdkmap_fb)
 			}
+			vmmap_fb.VmdkStatusList = vmdkmap_fb_List
 			vmmap_fb_List = append(vmmap_fb_List, vmmap_fb)
 		}
 
@@ -211,10 +218,10 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		//Step 2: PowerOff all Original VMs : Primary site
-		fmt.Println("Failback Step3: Powering off VMs on source/Primary Site.. ")
-		for _, vmmap := range vmmap_fb_List {
-			VmPowerChange(vcenter, vmmap.TargetVmUUID, false)
-		}
+		//fmt.Println("Failback Step3: Powering off VMs on source/Primary Site.. ")
+		//for _, vmmap := range vmmap_fb_List {
+		//	VmPowerChange(vcenter, vmmap.TargetVmUUID, false)
+		//}
 
 		//Update Status : activity Completed
 		instance.Status.FailbackStatus.PowerOffStatus = RECOVERY_ACTIVITY_COMPLETED
@@ -235,6 +242,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		//Update Status : activity Completed
 		//instance.Status.FailbackStatus.PowerOffStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 		instance.Status.FailbackVmListStatus = vmmap_fb_List
+		instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "8. Failed to update Appdrunit status")
 		}
@@ -258,8 +266,14 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		//Step 6: PowerOn all VMs
 		bAllVmDKsActive := true
-		for _, vmmap := range vmmap_fb_List {
+		for _, vmmap := range instance.Status.FailbackVmListStatus {
+			//vmmap.IsActiveBitTrue = true
+			//fmt.Println("\n\n ----After ActiveBitSet: powering ON VM.....", vmmap.TargetVmUUID)
+
 			if vmmap.IsActiveBitTrue {
+				//fmt.Println("\n\n After ActiveBitSet: powering ON VM.....", vmmap.TargetVmUUID)
+				fmt.Println("After ActiveBitSet: powering ON VMname.....", vmmap.VmName)
+
 				VmPowerChange(vcenter, vmmap.TargetVmUUID, true)
 			} else {
 				instance.Status.FailbackStatus.PowerOnStatus = RECOVERY_ACTIVITY_IN_PROGRESS
@@ -274,10 +288,15 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		//update Spec
 		if bAllVmDKsActive {
 			instance.Status.FailbackStatus.PowerOnStatus = RECOVERY_ACTIVITY_COMPLETED
-			instance.Status.FailbackStatus.RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 			instance.Spec.TriggerFailback = false
 			instance.Spec.TriggerFailbackWithLiveReplication = false
 		}
+		instance.Status.FailbackStatus.RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+		instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+
+		//instance.Spec.TriggerFailbackWithLiveReplication = false
+		//instance.Spec.TriggerFailback = false
+
 		if err = r.Client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "11. Failed to update Appdrunit", "Site", instance.Name)
 			return reconcile.Result{}, err
@@ -585,19 +604,6 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 				reqLogger.Error(err, "27 Failed to update appdrunit status")
 			}
-
-			//var vmdkmapList []draasv1alpha1.TriggerFailoverVmdkMapping
-			fmt.Println("Failover COMPLETED.. Not Powering off VMs on traget.......")
-
-			/*
-				fmt.Println("Failover COMPLETED.. Powering off VMs on traget.......")
-				vmmapList := instance.Status.FailoverVmListStatus
-
-				for _, vmmap := range vmmapList {
-					VmPowerChange(vcenter_dr, vmmap.TargetVmUUID, false)
-				}
-			*/
-
 		}
 	}
 
@@ -614,12 +620,14 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			//PowerOff the Source VM
 			if vm.TriggerPowerOff {
 				fmt.Println("FailBack: Power OFF of Source VM ", vm.VmName)
-				VmPowerChange(vcenter, vm.SourceVmUUID, false)
+				VmPowerChange(vcenter_dr, vm.SourceVmUUID, false)
 			}
 			for _, vmdk := range vm.VmdkStatusList {
-				//Execute Delete of Failovers
-				fmt.Println("DELETE Failover API: Follow_Seq is not null in failback")
-				DeleteFailoverEntry(instance.Spec.VesToken, vmdk.FailbackTriggerID)
+				if vmdk.Follow_Seq != "" {
+					//Execute Delete of Failovers
+					fmt.Println("DELETE Failover API: Follow_Seq is not null in failback")
+					DeleteFailoverEntry(instance.Spec.VesToken, vmdk.FailbackTriggerID)
+				}
 			}
 
 		}
@@ -748,58 +756,43 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if instance.Status.ProtectedVmList != nil {
-		fmt.Println("Getting Initial Sync details: Calling GetVMDKsFromPostGresDB to get received blocks/IO info.......")
 
-		VMDKListFromPostGresDResponse, _ := GetVMDKsFromPostGresDB(instance.Spec.VesToken)
-		for _, vmdkmapinfo := range VMDKListFromPostGresDResponse.Data {
-			for i, vminfo := range instance.Status.ProtectedVmList {
-				bUpdatedVMDKInfo := false
-				for j, vmdkinfo := range vminfo.Disks {
-					if vmdkmapinfo.VmdkScope == vmdkinfo.AbsPath {
-						fmt.Println("Adding Received blocks .......")
+		if (instance.Status.FailbackStatus.OverallFailbackStatus != RECOVERY_ACTIVITY_IN_PROGRESS) || (instance.Status.FailoverStatus.OverallFailoverStatus != RECOVERY_ACTIVITY_IN_PROGRESS) {
 
-						vmdkinfo.ReceivedBlocks = vmdkmapinfo.ReceivedBlocks
-						vmdkinfo.ReceivedIOs = vmdkmapinfo.ReceivedIOs
-						vmdkinfo.TotalBlocks = vmdkmapinfo.TotalBlocks
-						bUpdatedVMDKInfo = true
-						vminfo.Disks[j] = vmdkinfo
+			fmt.Println("Getting Initial Sync details: Calling GetVMDKsFromPostGresDB to get received blocks/IO info.......")
+
+			VMDKListFromPostGresDResponse, _ := GetVMDKsFromPostGresDB(instance.Spec.VesToken)
+			for _, vmdkmapinfo := range VMDKListFromPostGresDResponse.Data {
+				for i, vminfo := range instance.Status.ProtectedVmList {
+					bUpdatedVMDKInfo := false
+					for j, vmdkinfo := range vminfo.Disks {
+						if vmdkmapinfo.VmdkScope == vmdkinfo.AbsPath {
+							fmt.Println("Adding Received blocks .......")
+
+							vmdkinfo.ReceivedBlocks = vmdkmapinfo.ReceivedBlocks
+							vmdkinfo.ReceivedIOs = vmdkmapinfo.ReceivedIOs
+							vmdkinfo.TotalBlocks = vmdkmapinfo.TotalBlocks
+							bUpdatedVMDKInfo = true
+							vminfo.Disks[j] = vmdkinfo
+							break
+						}
+					}
+					if bUpdatedVMDKInfo {
+						instance.Status.ProtectedVmList[i] = vminfo
+						if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+							reqLogger.Error(err, "32. Failed to update Appdrunit status")
+						}
+
 						break
 					}
 				}
-				if bUpdatedVMDKInfo {
-					instance.Status.ProtectedVmList[i] = vminfo
-					if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
-						reqLogger.Error(err, "32. Failed to update Appdrunit status")
-					}
-
-					break
-				}
 			}
 		}
-		/*
-			for _, vm := range instance.Status.ProtectedVmList {
-				fmt.Println("PVmUUID: ", vm.VmUuid)
-				fmt.Println("PvmName : ", vm.Name)
-			}
-		*/
-		fmt.Println("Sleep Over for 10 seconds.....")
+		fmt.Println("Sleep Over for 5 seconds.....")
 		// Calling Sleep method
-		time.Sleep(10 * time.Second)
-
-		// Calling reconsiler after some period
-		fmt.Println("Calling reconsiler after 10 seconds/ testing... : ")
-
-		//update Spec
-		if err = r.Client.Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "33. Failed to update Appdrunit", "Site", instance.Name)
-			return reconcile.Result{}, err
-		}
-
-		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "34. Failed to update Appdrunit status")
-		}
-
+		time.Sleep(5 * time.Second)
 	}
+
 	//update Spec
 	if err = r.Client.Update(context.TODO(), instance); err != nil {
 		reqLogger.Error(err, "35. Failed to update Appdrunit", "Site", instance.Name)
