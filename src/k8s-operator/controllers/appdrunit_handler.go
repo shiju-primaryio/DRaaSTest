@@ -993,59 +993,43 @@ func CreateVM(vcenter draasv1alpha1.VCenterSpec, vmInfo draasv1alpha1.VMStatus) 
 
 func AddStorage(vmInfo draasv1alpha1.VMStatus) (object.VirtualDeviceList, error) {
 	var devices object.VirtualDeviceList
+	var controllerDevice types.BaseVirtualDevice
+	var controller types.BaseVirtualController
+	var err error
 
-	if vmInfo.Controller != "ide" {
-		if vmInfo.Controller == "nvme" {
-			nvme, err := devices.CreateNVMEController()
+	fmt.Println("len(vmInfo.Vmdks): ", len(vmInfo.Disks))
+	for i, disk := range vmInfo.Disks {
+		if (i % MAXDISKSPERCONTROLLER) == 0 {
+			fmt.Println("Creating new controller")
+			controllerDevice, err = CreateController(&devices, "")
 			if err != nil {
+				fmt.Println("Failed to create controller")
 				return nil, err
 			}
 
-			devices = append(devices, nvme)
-			vmInfo.Controller = devices.Name(nvme)
-		} else {
-			scsi, err := devices.CreateSCSIController("")
+			devices = append(devices, controllerDevice)
+			controller, err = devices.FindDiskController(devices.Name(controllerDevice))
 			if err != nil {
 				return nil, err
 			}
-
-			devices = append(devices, scsi)
-			vmInfo.Controller = devices.Name(scsi)
-		}
-	}
-
-	//TODO
-	/* // If controller is specified to be IDE or if an ISO is specified, add IDE controller.
-	if vmReq.Controller == "ide" || cmd.iso != "" {
-		ide, err := devices.CreateIDEController()
-		if err != nil {
-			return nil, err
 		}
 
-		devices = append(devices, ide)
-	} */
-
-	for _, disk := range vmInfo.Disks {
-		controller, err := devices.FindDiskController(vmInfo.Controller)
-		if err != nil {
-			return nil, err
-		}
-
-		disk := &types.VirtualDisk{
+		thin := disk.ThinProvisioned
+		vDisk := &types.VirtualDisk{
 			VirtualDevice: types.VirtualDevice{
 				Key:        devices.NewKey(),
-				UnitNumber: &disk.UnitNumber,
+				UnitNumber: &controller.GetVirtualController().Key,
 				Backing: &types.VirtualDiskFlatVer2BackingInfo{
 					DiskMode:        string(types.VirtualDiskModePersistent),
-					ThinProvisioned: types.NewBool(true),
+					ThinProvisioned: &thin,
 				},
 			},
 			CapacityInKB: disk.SizeMB * 1024,
 			//TODO Iofilter: ,
 		}
 
-		devices.AssignController(disk, controller)
-		devices = append(devices, disk)
+		devices.AssignController(vDisk, controller)
+		devices = append(devices, vDisk)
 	}
 
 	return devices, nil

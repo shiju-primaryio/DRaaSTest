@@ -15,7 +15,10 @@ import (
 	"github.com/vmware/govmomi/session/cache"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 )
+
+const MAXDISKSPERCONTROLLER = 15
 
 // Obtain a client to call vCenter APIs
 func GetVCenterClient(vcenter draasv1alpha1.VCenterSpec) (*vim25.Client, error) {
@@ -127,5 +130,37 @@ func GetProfileId(vCenterClient *vim25.Client) (string, error) {
 	}
 
 	return profile.ProfileId.UniqueId, nil
+}
 
+func CreateController(devices *object.VirtualDeviceList, controllerType string) (types.BaseVirtualDevice, error) {
+	var controller types.BaseVirtualDevice
+	if controllerType != "ide" {
+		if controllerType == "nvme" {
+			nvme, err := devices.CreateNVMEController()
+			if err != nil {
+				return nil, err
+			}
+
+			controller = nvme
+		} else {
+			scsi, err := devices.CreateSCSIController("")
+			if err != nil {
+				return nil, err
+			}
+
+			controller = scsi
+		}
+	}
+
+	// If controller is specified to be IDE or if an ISO is specified, add IDE controller.
+	if controllerType == "ide" {
+		ide, err := devices.CreateIDEController()
+		if err != nil {
+			return nil, err
+		}
+
+		controller = ide
+	}
+
+	return controller, nil
 }
