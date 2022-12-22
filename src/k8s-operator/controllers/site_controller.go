@@ -56,7 +56,7 @@ type SiteReconciler struct {
 func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	fmt.Println("\n ***Site: Current date and time is: ", time.Now().String())
+	//fmt.Println("\n ***Site: Current date and time is: ", time.Now().String())
 
 	// TODO(user): your logic here
 	reqLogger := logger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
@@ -109,7 +109,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return reconcile.Result{}, nil
 	}
 	*/
-	fmt.Println("\n Site: Current date and time is: ", time.Now().String())
+	//fmt.Println("\n Site: Current date and time is: ", time.Now().String())
 
 	var policyId string
 	fmt.Println("instance.Status.PolicyId: ", instance.Status.PolicyId)
@@ -171,9 +171,9 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	fmt.Println("Sleep Over for 10 seconds.....")
+	fmt.Println("Sleep Over for 5 seconds.....")
 	// Calling Sleep method
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	//return ctrl.Result{}, nil
 	return reconcile.Result{Requeue: true}, nil

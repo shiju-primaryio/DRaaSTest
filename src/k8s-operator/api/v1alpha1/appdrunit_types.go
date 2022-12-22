@@ -40,7 +40,7 @@ type AppDRUnitSpec struct {
 	TriggerCancelRecoveryOperation     bool              `json:"triggerCancelRecoveryOperation,omitempty"`
 	TriggerFailback                    bool              `json:"triggerFailback,omitempty"`
 	VesToken                           string            `json:"vesToken,omitempty"`
-	SnifPhpUrl                         string            `json:"snifPhpUrl,omitempty"`
+	//SnifPhpUrl                         string            `json:"snifPhpUrl,omitempty"`
 }
 
 type VMDKListFromPostGresDResponse struct {
@@ -56,6 +56,19 @@ type VMDKFromPostGresDResponse struct {
 }
 
 /*
+type VMDKActiveBitInfo struct {
+	VmdkScope     string `json:"vmdkscope"`
+	ActiveVMDKBit string `json:"activeVMDKBit"`
+}
+
+type VMActiveBitInfo struct {
+	SourceVmUUID string              `json:"sourceVmUUID"`
+	TargetVmUUID string              `json:"targetVmUUID"`
+	ActiveVMBit  string              `json:"activeVMBit"`
+	VmdkList     []VMDKActiveBitInfo `json:"vmdkList"`
+}
+*/
+/*
 // VCenterSpec contains vCenter related connection info
 
 	type VCenterSpec struct {
@@ -65,15 +78,22 @@ type VMDKFromPostGresDResponse struct {
 		Password string `json:"password,omitempty"`
 	}
 */
+
+type TriggerFailoverVmMapping struct {
+	VmName          string                       `json:"vmName,omitempty"`
+	SourceVmUUID    string                       `json:"sourceVmUUID,omitempty"`
+	TargetVmUUID    string                       `json:"targetVmUUID,omitempty"`
+	IsActiveBitTrue bool                         `json:"IsActiveBitTrue"`
+	TriggerPowerOff bool                         `json:"triggerPowerOff"`
+	VmdkStatusList  []TriggerFailoverVmdkMapping `json:"vmdkStatusList,omitempty"`
+}
+
 type TriggerFailoverVmdkMapping struct {
-	VmName            string `json:"vmName,omitempty"`
 	UnitNumber        int    `json:"unitNumber"`
 	ScsiControllerId  string `json:"scsiControllerId,omitempty"`
 	Label             string `json:"label,omitempty"`
 	SourceVmdkID      string `json:"sourceVmdkID,omitempty"`
 	TargetVmdkID      string `json:"targetVmdkID,omitempty"`
-	SourceVmUUID      string `json:"sourceVmUUID,omitempty"`
-	TargetVmUUID      string `json:"targetVmUUID,omitempty"`
 	SourceScope       string `json:"sourceScope,omitempty"`
 	TargetScope       string `json:"targetScope,omitempty"`
 	SentBlocks        string `json:"sentBlocks,omitempty"`
@@ -85,15 +105,21 @@ type TriggerFailoverVmdkMapping struct {
 	RehydrationStatus string `json:"rehydrationStatus,omitempty"`
 }
 
+type TriggerFailbackVmMapping struct {
+	VmName          string                       `json:"vmName,omitempty"`
+	SourceVmUUID    string                       `json:"sourceVmUUID,omitempty"`
+	TargetVmUUID    string                       `json:"targetVmUUID,omitempty"`
+	IsActiveBitTrue bool                         `json:"IsActiveBitTrue"`
+	TriggerPowerOff bool                         `json:"triggerPowerOff"`
+	VmdkStatusList  []TriggerFailbackVmdkMapping `json:"vmdkStatusList,omitempty"`
+}
+
 type TriggerFailbackVmdkMapping struct {
-	VmName            string `json:"vmName,omitempty"`
 	UnitNumber        int    `json:"unitNumber"`
 	ScsiControllerId  string `json:"scsiControllerId,omitempty"`
 	Label             string `json:"label,omitempty"`
 	SourceVmdkID      string `json:"sourceVmdkID,omitempty"`
 	TargetVmdkID      string `json:"targetVmdkID,omitempty"`
-	SourceVmUUID      string `json:"sourceVmUUID,omitempty"`
-	TargetVmUUID      string `json:"targetVmUUID,omitempty"`
 	SourceScope       string `json:"sourceScope,omitempty"`
 	TargetScope       string `json:"targetScope,omitempty"`
 	SentBlocks        string `json:"sentBlocks,omitempty"`
@@ -115,13 +141,13 @@ type VmPolicyRequest struct {
 type AppDRUnitStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Site                   string                       `json:"site,omitempty"`
-	ProtectedVmList        []VMStatus                   `json:"protectedVmList,omitempty"`
-	PeerSite               string                       `json:"peerSite,omitempty"`
-	FailoverStatus         FailoverStatus               `json:"failoverStatus,omitempty"`
-	FailbackStatus         FailbackStatus               `json:"failbackStatus,omitempty"`
-	FailoverVmdkListStatus []TriggerFailoverVmdkMapping `json:"failoverVmdkListStatus,omitempty"`
-	FailbackVmdkListStatus []TriggerFailbackVmdkMapping `json:"failbackVmdkListStatus,omitempty"`
+	Site                 string                     `json:"site,omitempty"`
+	ProtectedVmList      []VMStatus                 `json:"protectedVmList,omitempty"`
+	PeerSite             string                     `json:"peerSite,omitempty"`
+	FailoverStatus       FailoverStatus             `json:"failoverStatus,omitempty"`
+	FailbackStatus       FailbackStatus             `json:"failbackStatus,omitempty"`
+	FailoverVmListStatus []TriggerFailoverVmMapping `json:"failoverVmListStatus,omitempty"`
+	FailbackVmListStatus []TriggerFailbackVmMapping `json:"failbackVmListStatus,omitempty"`
 }
 
 /*
