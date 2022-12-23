@@ -242,14 +242,23 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		//Update Status : activity Completed
 		//instance.Status.FailbackStatus.PowerOffStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 		instance.Status.FailbackVmListStatus = vmmap_fb_List
-		instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "8. Failed to update Appdrunit status")
 		}
+		instance.Spec.TriggerFailback = false
+		instance.Spec.TriggerFailbackWithLiveReplication = false
+		if err = r.Client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "11. Failed to update Appdrunit", "Site", instance.Name)
+			return reconcile.Result{}, err
+		}
 
 		fmt.Println("Sleep Over for 10 seconds for active bit to be set.....")
+
 		// Calling Sleep method
 		time.Sleep(10 * time.Second)
+	}
+
+	if instance.Status.FailbackStatus.OverallFailbackStatus == RECOVERY_ACTIVITY_STARTED {
 
 		fmt.Println("Failback Step5: Waiting for Active bit to be set for all protected VMs ")
 		WaitForActiveBitTobeSetFailBack(instance.Spec.VesToken, instance.Status.FailbackVmListStatus)
@@ -290,9 +299,9 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			instance.Status.FailbackStatus.PowerOnStatus = RECOVERY_ACTIVITY_COMPLETED
 			instance.Spec.TriggerFailback = false
 			instance.Spec.TriggerFailbackWithLiveReplication = false
+			instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 		}
 		instance.Status.FailbackStatus.RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
-		instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 
 		//instance.Spec.TriggerFailbackWithLiveReplication = false
 		//instance.Spec.TriggerFailback = false
@@ -762,7 +771,8 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if instance.Status.ProtectedVmList != nil {
 
-		if (instance.Status.FailbackStatus.OverallFailbackStatus != RECOVERY_ACTIVITY_IN_PROGRESS) || (instance.Status.FailoverStatus.OverallFailoverStatus != RECOVERY_ACTIVITY_IN_PROGRESS) {
+		if (instance.Status.FailbackStatus.OverallFailbackStatus != RECOVERY_ACTIVITY_IN_PROGRESS) ||
+			(instance.Status.FailoverStatus.OverallFailoverStatus != RECOVERY_ACTIVITY_IN_PROGRESS) {
 
 			fmt.Println("Getting Initial Sync details: Calling GetVMDKsFromPostGresDB to get received blocks/IO info.......")
 
@@ -808,7 +818,8 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		reqLogger.Error(err, "36. Failed to update Appdrunit status")
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{RequeueAfter: time.Millisecond * 100, Requeue: true}, nil
+	//return reconcile.Result{Requeue: true}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

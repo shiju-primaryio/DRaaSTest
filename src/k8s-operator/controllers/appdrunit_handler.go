@@ -555,7 +555,7 @@ func WaitForActiveBitTobeSetFailBack(VesAuthToken string, vmmapList []draasv1alp
 					vmmapList[i].VmdkStatusList[j].SentBlocks = result.Data.Sentblocks
 					vmmapList[i].VmdkStatusList[j].TotalBlocks = result.Data.TotalBlocks
 
-					if vmdkmap.ActiveFailback == false {
+					if vmmapList[i].VmdkStatusList[j].ActiveFailback == false {
 						vmmapList[i].IsActiveBitTrue = vmdkmap.ActiveFailback
 						fmt.Println("Failback API:Sleeping for 5 seconds for active bit to be true")
 						time.Sleep(5 * time.Second)
@@ -630,7 +630,7 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmmapList []draasv1alpha1.Trig
 					//vmdkmap.FailoverTriggerID = result.Data.Id
 					vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
 					vmmapList[i].VmdkStatusList[j].ActiveFailover = result.Data.Active
-					if !vmdkmap.ActiveFailover {
+					if !result.Data.Active {
 						fmt.Println("Failover API: Active bit is false for failover ID : ", result.Data.Id)
 						//Setting to false
 						vmmapList[i].IsActiveBitTrue = vmdkmap.ActiveFailover
@@ -640,7 +640,7 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmmapList []draasv1alpha1.Trig
 					vmmapList[i].VmdkStatusList[j].SentBlocks = result.Data.Sentblocks
 					vmmapList[i].VmdkStatusList[j].TotalBlocks = result.Data.TotalBlocks
 					//vmdkmapList[i] = vmdkmap
-					if vmdkmap.ActiveFailover == false {
+					if result.Data.Active == false {
 						vmmapList[i].IsActiveBitTrue = vmdkmap.ActiveFailover
 						fmt.Println("Failover API:Sleeping for 5 seconds for active bit to be true")
 						time.Sleep(5 * time.Second)
@@ -784,6 +784,7 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 			//skip ssl tls verify
 			//http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
+			var result draasv1alpha1.FailoverResponse
 			for retry := 0; retry < 3; retry++ {
 				res2, err2 := http.DefaultClient.Do(req2)
 				if err2 != nil {
@@ -792,7 +793,6 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 
 				defer res2.Body.Close()
 				body2, _ := ioutil.ReadAll(res2.Body)
-				var result draasv1alpha1.FailoverResponse
 				if err := json.Unmarshal(body2, &result); err != nil { // Parse []byte to the go struct pointer
 					fmt.Println(err)
 					fmt.Println("Can not unmarshal JSON")
@@ -812,7 +812,6 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 					continue
 				}
 			}
-
 			fmt.Println("GET Failover API: Failover Id : ", result.Data.Id)
 			//vmdkmap.FailoverTriggerID = result.Data.Id
 			fmt.Println("Failover API: Failover ACk : ", result.Data.Ack)
@@ -839,8 +838,8 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 				vmmapList[i].TriggerPowerOff = false
 			}
 		}
-	}
 
+	}
 	return bIsFailoverCompleted, nil
 
 }
