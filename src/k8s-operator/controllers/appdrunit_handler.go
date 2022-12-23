@@ -750,6 +750,9 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 	bIsFailoverCompleted := true
 	for i, vmmap := range vmmapList {
 
+		//Assume Vm to be Powered off because of follow_seq
+		vmmapList[i].TriggerPowerOff = true
+
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
 			fmt.Println("\t GetFailoverStatus: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
@@ -812,10 +815,12 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 					} else {
 						vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 						bIsFailoverCompleted = false
+						vmmapList[i].TriggerPowerOff = false
 					}
 				} else {
 					vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 					bIsFailoverCompleted = false
+					vmmapList[i].TriggerPowerOff = false
 				}
 			}
 		}
