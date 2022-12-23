@@ -85,6 +85,7 @@ type TriggerFailoverVmMapping struct {
 	TargetVmUUID    string                       `json:"targetVmUUID,omitempty"`
 	IsActiveBitTrue bool                         `json:"IsActiveBitTrue"`
 	TriggerPowerOff bool                         `json:"triggerPowerOff"`
+	TriggerReset    bool                         `json:"triggerReset"`
 	VmdkStatusList  []TriggerFailoverVmdkMapping `json:"vmdkStatusList,omitempty"`
 }
 

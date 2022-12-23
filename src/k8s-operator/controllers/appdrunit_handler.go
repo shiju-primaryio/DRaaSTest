@@ -784,10 +784,12 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 			//skip ssl tls verify
 			//http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
-			res2, err2 := http.DefaultClient.Do(req2)
-			if err2 != nil {
-				fmt.Println(err2)
-			} else {
+			for retry := 0; retry < 3; retry++ {
+				res2, err2 := http.DefaultClient.Do(req2)
+				if err2 != nil {
+					fmt.Println(err2)
+				}
+
 				defer res2.Body.Close()
 				body2, _ := ioutil.ReadAll(res2.Body)
 				var result draasv1alpha1.FailoverResponse
@@ -797,34 +799,48 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 					bIsFailoverCompleted = false
 					return false, nil
 				}
-				fmt.Println("GET Failover API: Failover Id : ", result.Data.Id)
-				//vmdkmap.FailoverTriggerID = result.Data.Id
-				fmt.Println("Failover API: Failover ACk : ", result.Data.Ack)
-				vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
-				fmt.Println("GET Failover API: Failover Active flag : ", result.Data.Active)
-				vmmapList[i].VmdkStatusList[j].ActiveFailover = result.Data.Active
-				fmt.Println("GET Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
-				vmmapList[i].VmdkStatusList[j].SentCT = result.Data.Sent_ct
-				vmmapList[i].VmdkStatusList[j].SentBlocks = result.Data.Sentblocks
-				vmmapList[i].VmdkStatusList[j].TotalBlocks = result.Data.TotalBlocks
-				fmt.Println("GET Failover API: Failover Total Blocks : ", result.Data.TotalBlocks)
 
-				if vmdkmap.ActiveFailover == false {
-					if (vmdkmap.SentBlocks != "0") && (vmdkmap.SentBlocks == vmdkmap.SentCT) {
-						vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_COMPLETED
-					} else {
-						vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
-						bIsFailoverCompleted = false
-						vmmapList[i].TriggerPowerOff = false
-					}
+				if retry == 2 {
+					fmt.Println("Still SentBlocks are nil.. neet to reset VM")
+					vmmapList[i].TriggerReset = true
+					break
+				}
+
+				if result.Data.Sentblocks == "" {
+					fmt.Printf("SentBlocks are nil, Sleeping for 2 Seconds...")
+					time.Sleep(3 * time.Second)
+					continue
+				}
+			}
+
+			fmt.Println("GET Failover API: Failover Id : ", result.Data.Id)
+			//vmdkmap.FailoverTriggerID = result.Data.Id
+			fmt.Println("Failover API: Failover ACk : ", result.Data.Ack)
+			vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
+			fmt.Println("GET Failover API: Failover Active flag : ", result.Data.Active)
+			vmmapList[i].VmdkStatusList[j].ActiveFailover = result.Data.Active
+			fmt.Println("GET Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
+			vmmapList[i].VmdkStatusList[j].SentCT = result.Data.Sent_ct
+			vmmapList[i].VmdkStatusList[j].SentBlocks = result.Data.Sentblocks
+			vmmapList[i].VmdkStatusList[j].TotalBlocks = result.Data.TotalBlocks
+			fmt.Println("GET Failover API: Failover Total Blocks : ", result.Data.TotalBlocks)
+
+			if vmdkmap.ActiveFailover == false {
+				if (vmdkmap.SentBlocks != "0") && (vmdkmap.SentBlocks == vmdkmap.SentCT) {
+					vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_COMPLETED
 				} else {
 					vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 					bIsFailoverCompleted = false
 					vmmapList[i].TriggerPowerOff = false
 				}
+			} else {
+				vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
+				bIsFailoverCompleted = false
+				vmmapList[i].TriggerPowerOff = false
 			}
 		}
 	}
+
 	return bIsFailoverCompleted, nil
 
 }

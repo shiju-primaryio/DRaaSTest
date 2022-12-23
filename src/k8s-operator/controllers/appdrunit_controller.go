@@ -274,7 +274,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				//fmt.Println("\n\n After ActiveBitSet: powering ON VM.....", vmmap.TargetVmUUID)
 				fmt.Println("After ActiveBitSet: powering ON VMname.....", vmmap.VmName)
 
-				VmPowerChange(vcenter, vmmap.TargetVmUUID, true)
+				VmPowerChange(vcenter, vmmap.TargetVmUUID, true, false)
 			} else {
 				instance.Status.FailbackStatus.PowerOnStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 				bAllVmDKsActive = false
@@ -475,7 +475,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		for _, vmmap := range vmmapList {
-			VmPowerChange(vcenter_dr, vmmap.TargetVmUUID, false)
+			VmPowerChange(vcenter_dr, vmmap.TargetVmUUID, false, false)
 		}
 
 		//Update Status : activity Completed
@@ -528,7 +528,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		bAllVmDKsActive := true
 		for _, vmdkmap := range vmmapList {
 			if vmdkmap.IsActiveBitTrue {
-				VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, true)
+				VmPowerChange(vcenter_dr, vmdkmap.TargetVmUUID, true, false)
 			} else {
 				instance.Status.FailoverStatus.PowerOnStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 				bAllVmDKsActive = false
@@ -594,7 +594,10 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		for _, vmmap := range vmmapList {
 			if vmmap.TriggerPowerOff {
 				fmt.Println("FailOver completed for VM, so Powering OFF VM........", vmmap.VmName)
-				VmPowerChange(vcenter_dr, vmmap.TargetVmUUID, false)
+				VmPowerChange(vcenter_dr, vmmap.TargetVmUUID, false, false)
+			} else if vmmap.TriggerReset {
+				fmt.Println("Failover sentblocks nil, so Resetting VM........", vmmap.VmName)
+				VmPowerChange(vcenter_dr, vmmap.TargetVmUUID, false, true)
 			}
 		}
 
@@ -620,7 +623,7 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			//PowerOff the Source VM
 			if vm.TriggerPowerOff {
 				fmt.Println("FailBack: Power OFF of Source VM ", vm.VmName)
-				VmPowerChange(vcenter_dr, vm.SourceVmUUID, false)
+				VmPowerChange(vcenter_dr, vm.SourceVmUUID, false, false)
 
 				for _, vmdk := range vm.VmdkStatusList {
 					if vmdk.Follow_Seq != "" {

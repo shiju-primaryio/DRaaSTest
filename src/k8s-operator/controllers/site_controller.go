@@ -142,7 +142,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		for _, vm := range instance.Spec.VMList {
 			var taskName string
 			fmt.Println("Changing power state of Vm: ", vm.UUID)
-			taskName, err = VmPowerChange(instance.Spec.VCenter, vm.UUID, vm.IsPowerOn)
+			taskName, err = VmPowerChange(instance.Spec.VCenter, vm.UUID, vm.IsPowerOn, false)
 
 			fmt.Println("VM task name :", taskName)
 			if err != nil {

@@ -508,7 +508,7 @@ func GetVmdks(vm mo.VirtualMachine, dss []mo.Datastore) ([]draasv1alpha1.Disk, b
 	return vmdks, isProtected
 }
 
-func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState bool) (string, error) {
+func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState bool, reset bool) (string, error) {
 	urlString := "https://" + vcenter.UserName + ":" + vcenter.Password + "@" + vcenter.IP + "/sdk"
 	u, err := url.Parse(urlString)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -552,7 +552,10 @@ func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState 
 
 	CurrentPowerState, _ := vmObj.PowerState(ctx)
 
-	if (powerState) && (CurrentPowerState == types.VirtualMachinePowerStatePoweredOff) {
+	if reset {
+		fmt.Println("Reset VM...")
+		task, err = vmObj.Reset(ctx)
+	} else if (powerState) && (CurrentPowerState == types.VirtualMachinePowerStatePoweredOff) {
 		fmt.Println("Powering on VM...")
 		task, err = vmObj.PowerOn(ctx)
 	} else if (!powerState) && (CurrentPowerState == types.VirtualMachinePowerStatePoweredOn) {
