@@ -545,6 +545,10 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			instance.Status.FailoverStatus.RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 			instance.Spec.TriggerFailover = false
 		}
+		//fmt.Println("Sleep Over for 10 seconds after failover trigger.....")
+		// Calling Sleep method
+		//time.Sleep(10 * time.Second)
+
 		if err = r.Client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "23. Failed to update Appdrunit", "Site", instance.Name)
 			return reconcile.Result{}, err
@@ -553,10 +557,6 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "24. Failed to update Appdrunit status")
 		}
-
-		fmt.Println("Sleep Over for 10 seconds after failover trigger.....")
-		// Calling Sleep method
-		time.Sleep(10 * time.Second)
 
 		//Requeue the work to reconsiler
 		if err != nil {
@@ -621,26 +621,28 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			if vm.TriggerPowerOff {
 				fmt.Println("FailBack: Power OFF of Source VM ", vm.VmName)
 				VmPowerChange(vcenter_dr, vm.SourceVmUUID, false)
-			}
-			for _, vmdk := range vm.VmdkStatusList {
-				if vmdk.Follow_Seq != "" {
-					//Execute Delete of Failovers
-					fmt.Println("DELETE Failover API: Follow_Seq is not null in failback")
-					DeleteFailoverEntry(instance.Spec.VesToken, vmdk.FailbackTriggerID)
+
+				for _, vmdk := range vm.VmdkStatusList {
+					if vmdk.Follow_Seq != "" {
+						//Execute Delete of Failovers
+						fmt.Println("DELETE Failover API: Follow_Seq is not null in failback")
+						DeleteFailoverEntry(instance.Spec.VesToken, vmdk.FailbackTriggerID)
+					}
 				}
 			}
 
 		}
 
-		vmmapList := instance.Status.FailbackVmListStatus
-		for _, vmmap := range vmmapList {
-			if vmmap.TriggerPowerOff {
-				fmt.Println("FailBack completed for VM, so Powering OFF VM........", vmmap.VmName)
-				VmPowerChange(vcenter, vmmap.TargetVmUUID, false)
-			}
-		}
-
 		if bIsFailbackCompleted {
+			/*TODO: PowerON PowerOFF VM
+			vmmapList := instance.Status.FailbackVmListStatus
+			for _, vmmap := range vmmapList {
+				if vmmap.TriggerPowerOff {
+					fmt.Println("FailBack completed for VM, so Powering OFF VM........", vmmap.VmName)
+					VmPowerChange(vcenter, vmmap.TargetVmUUID, false)
+				}
+			}
+			*/
 			instance.Status.FailbackStatus.OverallFailbackStatus = RECOVERY_ACTIVITY_COMPLETED
 			instance.Status.FailbackStatus.RehydrationStatus = RECOVERY_ACTIVITY_COMPLETED
 			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
@@ -788,9 +790,9 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				}
 			}
 		}
-		fmt.Println("Sleep Over for 5 seconds.....")
+		//fmt.Println("Sleep Over for 5 seconds.....")
 		// Calling Sleep method
-		time.Sleep(5 * time.Second)
+		//time.Sleep(5 * time.Second)
 	}
 
 	//update Spec

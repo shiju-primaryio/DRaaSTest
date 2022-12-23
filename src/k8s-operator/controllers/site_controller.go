@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -171,9 +170,9 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	fmt.Println("Sleep Over for 5 seconds.....")
+	//fmt.Println("Sleep Over for 5 seconds.....")
 	// Calling Sleep method
-	time.Sleep(5 * time.Second)
+	//time.Sleep(5 * time.Second)
 
 	//return ctrl.Result{}, nil
 	return reconcile.Result{Requeue: true}, nil

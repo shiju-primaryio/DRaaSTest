@@ -22,8 +22,11 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-// const SnifPhpUrl string = "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz"
-const SnifPhpUrl string = "https://rcf76eb14e093.snif-3ba203b1de68-4801cd35.snif.xyz"
+// Alpha Environment  PHP Server
+const SnifPhpUrl string = "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz"
+
+//Dev Environment PHP Server
+//const SnifPhpUrl string = "https://rcf76eb14e093.snif-3ba203b1de68-4801cd35.snif.xyz"
 
 func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []draasv1alpha1.VmPolicyRequest) ([]draasv1alpha1.VMStatus, error) {
 	var VmDetails []draasv1alpha1.VMStatus
@@ -494,7 +497,7 @@ func InitiateFailback(VesAuthToken string, bFailbackWithLiveReplication bool, vm
 
 func WaitForActiveBitTobeSetFailBack(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFailbackVmMapping) error {
 
-	MaxRetryChecks := 10
+	MaxRetryChecks := 50
 
 	for i, vmmap := range vmmapList {
 
@@ -575,7 +578,7 @@ func WaitForActiveBitTobeSetFailBack(VesAuthToken string, vmmapList []draasv1alp
 
 func WaitForActiveBitTobeSet(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFailoverVmMapping) error {
 
-	MaxRetryChecks := 10
+	MaxRetryChecks := 50
 
 	for i, vmmap := range vmmapList {
 
@@ -740,7 +743,6 @@ func GetFailbackStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 		}
 	}
 	return bIsFailbackCompleted, nil
-
 }
 
 func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFailoverVmMapping) (bool, error) {
