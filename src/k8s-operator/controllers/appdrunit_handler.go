@@ -22,7 +22,8 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
-const SnifPhpUrl string = "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz"
+// const SnifPhpUrl string = "https://rea93e992fa2f.snif-0e92f727f614-81cbba95.snif.xyz"
+const SnifPhpUrl string = "https://rcf76eb14e093.snif-3ba203b1de68-4801cd35.snif.xyz"
 
 func ChangePolicyState(vcenter draasv1alpha1.VCenterSpec, ProtectVMUUIDList []draasv1alpha1.VmPolicyRequest) ([]draasv1alpha1.VMStatus, error) {
 	var VmDetails []draasv1alpha1.VMStatus
