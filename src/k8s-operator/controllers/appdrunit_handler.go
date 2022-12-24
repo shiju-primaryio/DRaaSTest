@@ -370,8 +370,8 @@ func InitiateFailover(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFail
 
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
-			fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-			fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			fmt.Println("\tInitiateFailover: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID, " TargetVmdkID :", vmdkmap.TargetVmdkID)
+			//fmt.Println("\tInitiateFailover: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
 
 			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
 				fmt.Println("Continuing")
@@ -431,8 +431,8 @@ func InitiateFailback(VesAuthToken string, bFailbackWithLiveReplication bool, vm
 
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
-			fmt.Println("\tInitiateFailback: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-			fmt.Println("\tInitiateFailback: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			fmt.Println("\tInitiateFailback: SourceVmdkID :", vmdkmap.SourceVmdkID, " TargetVmdkID :", vmdkmap.TargetVmdkID)
+			//fmt.Println("\tInitiateFailback: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
 			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
 				fmt.Println("Continuing")
 				continue
@@ -478,7 +478,7 @@ func InitiateFailback(VesAuthToken string, bFailbackWithLiveReplication bool, vm
 					fmt.Println(err)
 					fmt.Println("Can not unmarshal JSON")
 				}
-				fmt.Println("Failover Id (vmdkmap.FailoverTriggerID) created by Failover API", result.Data.Id)
+				fmt.Println("Failback Id (vmdkmap.FailbackTriggerID) created by Failback API", result.Data.Id)
 				vmmapList[i].VmdkStatusList[j].FailbackTriggerID = result.Data.Id
 				vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
 				vmmapList[i].VmdkStatusList[j].ActiveFailback = result.Data.Active
@@ -506,9 +506,9 @@ func WaitForActiveBitTobeSetFailBack(VesAuthToken string, vmmapList []draasv1alp
 
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
-			fmt.Println("\t WaitForActiveBitTobeSetFailBack: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-			fmt.Println("\t WaitForActiveBitTobeSetFailBack: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
-			fmt.Println("\t WaitForActiveBitTobeSetFailBack: vmdkmap.ActiveFailover :", vmdkmap.ActiveFailback)
+			fmt.Println("\t WaitForActiveBitTobeSetFailBack: SourceVmdkID :", vmdkmap.SourceVmdkID, "TargetVmdkID", vmdkmap.TargetVmdkID, "ActiveFailback :", vmdkmap.ActiveFailback)
+			//fmt.Println("\t WaitForActiveBitTobeSetFailBack: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			//fmt.Println("\t WaitForActiveBitTobeSetFailBack: vmdkmap.ActiveFailback :", vmdkmap.ActiveFailback)
 
 			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") || (vmdkmap.ActiveFailback == true) {
 				continue
@@ -545,19 +545,20 @@ func WaitForActiveBitTobeSetFailBack(VesAuthToken string, vmmapList []draasv1alp
 						fmt.Println(err)
 						fmt.Println("Can not unmarshal JSON")
 					}
-					fmt.Println("WaitForActiveBitTobeSetFailBack: Failback API: Failback Id : ", result.Data.Id)
+					//fmt.Println("WaitForActiveBitTobeSetFailBack: Failback API: Failback Id : ", result.Data.Id,"Sent Blocks :",result.Data.Sentblocks,"Sleeping for 5 seconds..")
 					//vmdkmap.FailoverTriggerID = result.Data.Id
 					vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
 					vmmapList[i].VmdkStatusList[j].ActiveFailback = result.Data.Active
 
-					fmt.Println("WaitForActiveBitTobeSetFailBack: Failover API: Failback Sent Blocks : ", result.Data.Sentblocks)
+					//fmt.Println("WaitForActiveBitTobeSetFailBack: Failover API: Failback Sent Blocks : ", result.Data.Sentblocks)
 					vmmapList[i].VmdkStatusList[j].SentCT = result.Data.Sent_ct
 					vmmapList[i].VmdkStatusList[j].SentBlocks = result.Data.Sentblocks
 					vmmapList[i].VmdkStatusList[j].TotalBlocks = result.Data.TotalBlocks
 
 					if vmmapList[i].VmdkStatusList[j].ActiveFailback == false {
 						vmmapList[i].IsActiveBitTrue = vmdkmap.ActiveFailback
-						fmt.Println("Failback API:Sleeping for 5 seconds for active bit to be true")
+						fmt.Println("WaitForActiveBitTobeSetFailBack: FailbackId : ", result.Data.Id, " retryCount:", k, " Sleep for 5s.")
+						//fmt.Println("Failback API:Sleeping for 5 seconds for active bit to be true")
 						time.Sleep(5 * time.Second)
 					} else {
 						fmt.Println("Failback API: Active bit is true for failback ID : ", result.Data.Id)
@@ -570,6 +571,7 @@ func WaitForActiveBitTobeSetFailBack(VesAuthToken string, vmmapList []draasv1alp
 		for _, vmdkmap := range vmmap.VmdkStatusList {
 			if vmdkmap.ActiveFailback == false {
 				vmmapList[i].IsActiveBitTrue = false
+				fmt.Println("Failback API: IsActiveBitTrue is set to false ", vmmapList[i].VmName)
 			}
 		}
 	}
@@ -587,9 +589,10 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmmapList []draasv1alpha1.Trig
 
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
-			fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-			fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
-			fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.ActiveFailover :", vmdkmap.ActiveFailover)
+			fmt.Println("\t WaitForActiveBitTobeSetFailOver: SourceVmdkID :", vmdkmap.SourceVmdkID, "TargetVmdkID", vmdkmap.TargetVmdkID, "ActiveFailback :", vmdkmap.ActiveFailover)
+			//fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
+			//fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			//fmt.Println("\t WaitForActiveBitTobeSet: vmdkmap.ActiveFailover :", vmdkmap.ActiveFailover)
 
 			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") || (vmdkmap.ActiveFailover == true) {
 				continue
@@ -626,7 +629,7 @@ func WaitForActiveBitTobeSet(VesAuthToken string, vmmapList []draasv1alpha1.Trig
 						fmt.Println(err)
 						fmt.Println("Can not unmarshal JSON")
 					}
-					fmt.Println("WaitForActiveBitTobeSet: FailOver API: FailOver Id : ", result.Data.Id)
+					fmt.Println("WaitForActiveBitTobeSet: FailOver API: FailOverId : ", result.Data.Id)
 					//vmdkmap.FailoverTriggerID = result.Data.Id
 					vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
 					vmmapList[i].VmdkStatusList[j].ActiveFailover = result.Data.Active
@@ -672,8 +675,8 @@ func GetFailbackStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
-			fmt.Println("\t GetFailbackStatus: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-			fmt.Println("\t GetFailbackStatus: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			fmt.Println("\t GetFailbackStatus: SourceVmdkID :", vmdkmap.SourceVmdkID, "TargetVmdkID :", vmdkmap.TargetVmdkID)
+			//fmt.Println("\t GetFailbackStatus: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
 
 			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
 				bIsFailbackCompleted = false
@@ -710,32 +713,32 @@ func GetFailbackStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 					bIsFailbackCompleted = false
 					return false, nil
 				}
-				fmt.Println("GET Failback API: Failback Id : ", result.Data.Id)
+				fmt.Println("GET Failback API: FailbackId : ", result.Data.Id, " Active: ", result.Data.Active, " SentBlocks: ", result.Data.Sentblocks, " TotalBlocks: ", result.Data.TotalBlocks)
 				//vmdkmap.FailoverTriggerID = result.Data.Id
-				fmt.Println("Failback API: Failback ACk : ", result.Data.Ack)
+				//fmt.Println("Failback API: Failback ACk : ", result.Data.Ack)
 				vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
-				fmt.Println("GET Failback API: Failback Active flag : ", result.Data.Active)
+				//fmt.Println("GET Failback API: Failback Active flag : ", result.Data.Active)
 				vmmapList[i].VmdkStatusList[j].ActiveFailback = result.Data.Active
-				fmt.Println("GET Failback API: Failback Sent Blocks : ", result.Data.Sentblocks)
+				//fmt.Println("GET Failback API: Failback Sent Blocks : ", result.Data.Sentblocks)
 				vmmapList[i].VmdkStatusList[j].SentCT = result.Data.Sent_ct
 				vmmapList[i].VmdkStatusList[j].SentBlocks = result.Data.Sentblocks
 				vmmapList[i].VmdkStatusList[j].TotalBlocks = result.Data.TotalBlocks
 				vmmapList[i].VmdkStatusList[j].Follow_Seq = result.Data.Follow_Seq
-				fmt.Println("GET Failback API: Failback Total Blocks : ", result.Data.TotalBlocks)
+				//fmt.Println("GET Failback API: Failback Total Blocks : ", result.Data.TotalBlocks)
 
 				//TODO: Check whether its null or empty
 				if vmmapList[i].VmdkStatusList[j].Follow_Seq == "" {
-					fmt.Println("\n\t Follow Sequence is EMPTY.. Setting TriggerPowerOFF to False")
+					//fmt.Println("GET Failback API: Failback Total Blocks : ", result.Data.TotalBlocks, " Follow Sequence is EMPTY..")
 					vmmapList[i].TriggerPowerOff = false
 				} else {
-					fmt.Println("\n\t Follow Sequence is **NOT EMPTY**** vmmapList[i].TriggerPowerOff: ", vmmapList[i].TriggerPowerOff)
+					fmt.Println("GET Failback API: Follow Sequence is **NOT EMPTY**..")
 				}
 
 				if vmdkmap.ActiveFailback == false {
-					fmt.Println("\t Acive bit is false.. ")
+					fmt.Println("\t Acive bit is false.. Marking rehydration of VMDK Completed. ")
 					vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_COMPLETED
 				} else {
-					fmt.Println("\t Acive bit is true.. ")
+					//fmt.Println("\t Acive bit is true.. ")
 					vmmapList[i].VmdkStatusList[j].RehydrationStatus = RECOVERY_ACTIVITY_IN_PROGRESS
 					bIsFailbackCompleted = false
 				}
@@ -752,11 +755,13 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 
 		//Assume Vm to be Powered off because of follow_seq
 		vmmapList[i].TriggerPowerOff = true
+		vmmapList[i].TriggerReset = false
 
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
-			fmt.Println("\t GetFailoverStatus: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
-			fmt.Println("\t GetFailoverStatus: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
+			fmt.Println("\n\t GetFailoverStatus: SourceVmdkID :", vmdkmap.SourceVmdkID, "TargetVmdkID :", vmdkmap.TargetVmdkID)
+			//fmt.Println("\t GetFailoverStatus: vmdkmap.SourceVmdkID :", vmdkmap.SourceVmdkID)
+			//fmt.Println("\t GetFailoverStatus: vmdkmap.TargetVmdkID :", vmdkmap.TargetVmdkID)
 
 			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
 				bIsFailoverCompleted = false
@@ -812,13 +817,15 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 					continue
 				}
 			}
-			fmt.Println("GET Failover API: Failover Id : ", result.Data.Id)
+
+			fmt.Println("GET Failover API: FailoverId : ", result.Data.Id, " Active: ", result.Data.Active, " SentBlocks: ", result.Data.Sentblocks)
+			//fmt.Println("GET Failover API: Failover Id : ", result.Data.Id)
 			//vmdkmap.FailoverTriggerID = result.Data.Id
-			fmt.Println("Failover API: Failover ACk : ", result.Data.Ack)
+			//fmt.Println("Failover API: Failover ACk : ", result.Data.Ack)
 			vmmapList[i].VmdkStatusList[j].Ack = result.Data.Ack
-			fmt.Println("GET Failover API: Failover Active flag : ", result.Data.Active)
+			//fmt.Println("GET Failover API: Failover Active flag : ", result.Data.Active)
 			vmmapList[i].VmdkStatusList[j].ActiveFailover = result.Data.Active
-			fmt.Println("GET Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
+			//fmt.Println("GET Failover API: Failover Sent Blocks : ", result.Data.Sentblocks)
 			vmmapList[i].VmdkStatusList[j].SentCT = result.Data.Sent_ct
 			vmmapList[i].VmdkStatusList[j].SentBlocks = result.Data.Sentblocks
 			vmmapList[i].VmdkStatusList[j].TotalBlocks = result.Data.TotalBlocks

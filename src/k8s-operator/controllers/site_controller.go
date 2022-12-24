@@ -60,7 +60,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// TODO(user): your logic here
 	reqLogger := logger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Reconciling Site Config")
+	//reqLogger.Info("Reconciling Site Config")
 
 	var err error
 	// Fetch the Site instance
@@ -112,7 +112,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	//fmt.Println("\n Site: Current date and time is: ", time.Now().String())
 
 	var policyId string
-	fmt.Println("instance.Status.PolicyId: ", instance.Status.PolicyId)
+	//fmt.Println("instance.Status.PolicyId: ", instance.Status.PolicyId)
 	//If Host field is set, then create Storage Policy if doesn't exist already
 	if instance.Spec.StoragePolicy.Host != "" && instance.Status.PolicyId == "" {
 		fmt.Println("Creating Storage Policy.......")
@@ -126,7 +126,8 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 		//Reset the VMList in Spec
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
-			glog.Errorf("Failed to update Site status : %v", err)
+			//glog.Errorf("Failed to update Site status : %v", err)
+			fmt.Println("Failed to update Site status :", err)
 		}
 	}
 
@@ -157,7 +158,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 				instance.Status.Error.ErrorMessage = ""
 			}
 		}
-		fmt.Println("Setting VMList to Nil .......")
+		//fmt.Println("Setting VMList to Nil .......")
 		instance.Spec.VMList = nil
 
 		//Reset the VMList in Spec
@@ -173,7 +174,7 @@ func (r *SiteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	fmt.Println("Sleep Over for 5 seconds.....")
+	//fmt.Println("Sleep Over for 5 seconds.....")
 	// Calling Sleep method
 	time.Sleep(5 * time.Second)
 

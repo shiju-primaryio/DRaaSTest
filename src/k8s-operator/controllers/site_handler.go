@@ -520,7 +520,7 @@ func VmPowerChange(vcenter draasv1alpha1.VCenterSpec, vMuuid string, powerState 
 	c, err1 := govmomi.NewClient(ctx, u, true)
 	if err1 != nil {
 		fmt.Println("Error connecting to ESX : ", err1)
-		return "", err1
+		return "Error connecting to ESX.. ", err1
 	}
 
 	f := find.NewFinder(c.Client, true)
