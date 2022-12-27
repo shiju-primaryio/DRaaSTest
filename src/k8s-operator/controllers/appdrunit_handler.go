@@ -749,14 +749,20 @@ func GetFailbackStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 }
 
 func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFailoverVmMapping) (bool, error) {
-
+	MaxRetryChecks := 10
 	bIsFailoverCompleted := true
 	for i, vmmap := range vmmapList {
 
-		//Assume Vm to be Powered off because of follow_seq
-		vmmapList[i].TriggerPowerOff = true
+		vmmapList[i].TriggerPowerOff = false
 		vmmapList[i].TriggerReset = false
 
+		// If all VMDKs Rehydration Status is completed , then PowerOFF is already DONE. So triggerPOwerOff should be false in this case.
+		for _, vmdkmap := range vmmap.VmdkStatusList {
+			if vmdkmap.RehydrationStatus != RECOVERY_ACTIVITY_COMPLETED {
+				vmmapList[i].TriggerPowerOff = true
+			}
+		}
+		//
 		for j, vmdkmap := range vmmap.VmdkStatusList {
 
 			fmt.Println("\n\t GetFailoverStatus: SourceVmdkID :", vmdkmap.SourceVmdkID, "TargetVmdkID :", vmdkmap.TargetVmdkID)
@@ -765,6 +771,12 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 
 			if (vmdkmap.SourceVmdkID == "") || (vmdkmap.TargetVmdkID == "") {
 				bIsFailoverCompleted = false
+				fmt.Println("Continuing")
+				continue
+			}
+
+			if vmdkmap.RehydrationStatus == RECOVERY_ACTIVITY_COMPLETED {
+				//vmmapList[i].TriggerPowerOff = false
 				fmt.Println("Continuing")
 				continue
 			}
@@ -790,7 +802,7 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 			//http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 			var result draasv1alpha1.FailoverResponse
-			for retry := 0; retry < 3; retry++ {
+			for retry := 0; retry < MaxRetryChecks; retry++ {
 				res2, err2 := http.DefaultClient.Do(req2)
 				if err2 != nil {
 					fmt.Println(err2)
@@ -805,17 +817,22 @@ func GetFailoverStatus(VesAuthToken string, vmmapList []draasv1alpha1.TriggerFai
 					return false, nil
 				}
 
-				if retry == 2 {
+				if retry == MaxRetryChecks-1 {
 					fmt.Println("Still SentBlocks are nil.. neet to reset VM")
 					vmmapList[i].TriggerReset = true
 					break
 				}
 
-				if result.Data.Sentblocks == "" {
-					fmt.Printf("SentBlocks are nil, Sleeping for 2 Seconds...")
-					time.Sleep(3 * time.Second)
+				if (result.Data.Sentblocks == "") || (result.Data.Sentblocks == "0") {
+					fmt.Println("SentBlocks are nil, Sleeping for 5 Seconds. RetryCount", retry)
+					time.Sleep(5 * time.Second)
 					continue
+				} else {
+					//TODO: Need to remove else
+					fmt.Println("SentBlocks have started,breaking from retry loop for ID:", result.Data.Id, " SentBlocks: ", result.Data.Sentblocks)
+					break
 				}
+
 			}
 
 			fmt.Println("GET Failover API: FailoverId : ", result.Data.Id, " Active: ", result.Data.Active, " SentBlocks: ", result.Data.Sentblocks)

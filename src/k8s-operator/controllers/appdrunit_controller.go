@@ -593,6 +593,18 @@ func (r *AppDRUnitReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			fmt.Println("Failed to cancel failover .......", err)
 		} else {
 			instance.Spec.TriggerCancelRecoveryOperation = false
+			instance.Spec.TriggerFailover = false
+			//update Spec
+			if err = r.Client.Update(context.TODO(), instance); err != nil {
+				reqLogger.Error(err, "35. Failed to update Appdrunit", "Site", instance.Name)
+				return reconcile.Result{}, err
+			}
+
+			instance.Status.FailoverVmListStatus = nil
+			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+				reqLogger.Error(err, "36. Failed to update Appdrunit status")
+			}
+
 		}
 	}
 
