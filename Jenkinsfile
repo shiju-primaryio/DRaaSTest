@@ -7,7 +7,7 @@ pipeline {
     node {
         stage('List pods') {
             withKubeConfig([credentialsId: '<credential-id>',
-                        caCertificate: '-----BEGIN CERTIFICATE-----
+                        caCertificate:  '''-----BEGIN CERTIFICATE-----
 MIIC5zCCAc+gAwIBAgIBADANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDEwprdWJl
 cm5ldGVzMB4XDTIzMDExMDIyMzAwNloXDTMzMDEwNzIyMzAwNlowFTETMBEGA1UE
 AxMKa3ViZXJuZXRlczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALNb
@@ -24,7 +24,7 @@ HkLhapTM4rexyz5YHpZTNnfhnpn3urLCo+MsV+u0blD6w7/rVrylcXHcF3pYhd50
 0toZtZjjkG1jxmC06pk9CXu0ZIxpUm95XOYOuQ7GwN0ryXKtuQWpjpMT/sbbIUoG
 wRn/+0e2/qi+V0PqjhJzrD3LuKAs31uiPxNFpGl6ILBxEGkuEqQiBZBRNBXcbL/R
 sA+sLRd/zR9m5it301+cc3rGiV2hX0ibxFnn
------END CERTIFICATE-----',
+-----END CERTIFICATE-----''',
                         serverUrl: '192.168.0.8:6443',
                         contextName: '',
                         clusterName: 'kubernetes-admin@kubernetes',
