@@ -6,7 +6,7 @@ pipeline {
     }
     node {
         stage('List pods') {
-            withKubeConfig([credentialsId: '<credential-id>',
+            withKubeConfig([credentialsId: 'e13ddeb2-31a7-44b9-b1cd-b9efae90b5ff',
                         caCertificate:  '''-----BEGIN CERTIFICATE-----
 MIIC5zCCAc+gAwIBAgIBADANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDEwprdWJl
 cm5ldGVzMB4XDTIzMDExMDIyMzAwNloXDTMzMDEwNzIyMzAwNlowFTETMBEGA1UE
